@@ -58,7 +58,7 @@ images: Dict[Any, AxesImage] = {}
 PLOTTING_DOMAIN = get_plotting_domain(LOWER_LIMIT, UPPER_LIMIT, PLOTTING_RESOLUTION)
 
 
-def plot_data(data, subplot):
+def plot_data(data, subplot, title=""):
     data = data.reshape(PLOTTING_RESOLUTION, PLOTTING_RESOLUTION)
 
     if subplot in images:
@@ -72,22 +72,24 @@ def plot_data(data, subplot):
                             interpolation="nearest", origin="lower")
         images[subplot] = image
 
+        axis.set_title(title)
+
     plt.pause(0.01)
 
 
 def plot_true_function():
     z = true_integrand(PLOTTING_DOMAIN)
-    plot_data(z, 133)
+    plot_data(z, 133, "True Integrand")
 
 
 def plot_integrand_posterior(integrand_model: IntegrandModel):
     z = integrand_model.posterior_mean_and_variance(PLOTTING_DOMAIN)[0]
-    plot_data(z, 132)
+    plot_data(z, 132, "Posterior Mean")
 
 
 def plotting_callback(func):
     z = np.exp(func(PLOTTING_DOMAIN, calculate_jacobian=False)[0])
-    plot_data(z, 131)
+    plot_data(z, 131, "Acquisition Function")
 
 
 plotting.add_callback("Soft penalised log acquisition function", plotting_callback)
