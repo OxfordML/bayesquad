@@ -127,8 +127,8 @@ def multi_start_maximise_log(objective_function: Callable,
 
     See Also
     --------
-    :func:`~multi_start_maximise_experimental` : `multi_start_maximise_log` is a thin wrapper around this function. See
-    this function for further details on parameters and return values.
+    :func:`~multi_start_maximise` : `multi_start_maximise_log` is a thin wrapper around this function. See this function
+    for further details on parameters and return values.
     """
     @wraps(objective_function)
     def log_objective_function(x, *inner_args, **inner_kwargs):

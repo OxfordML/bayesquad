@@ -33,7 +33,7 @@ def jacobian_of_f_squared_times_g(*,
 
     .. math::
 
-        \\frac{\\partial f^2 g}{\\partial x_j} & = & 2 f g \\frac{\\partial f}{\\partial x_j}
+        \\frac{\\partial f^2 g}{\\partial x_j} = 2 f g \\frac{\\partial f}{\\partial x_j}
         + f^2 \\frac{\\partial g}{\\partial x_j}
     """
     assert f.ndim == g.ndim == 1, "Function data must be a 1-dimensional array"
