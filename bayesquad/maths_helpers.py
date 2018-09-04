@@ -86,7 +86,7 @@ def hessian_of_f_squared_times_g(*,
 
         \\frac{\\partial f^2 g}{\\partial x_j} & = & 2 f g \\frac{\\partial f}{\\partial x_j}
         + f^2 \\frac{\\partial g}{\\partial x_j} \\\\
-        \\frac{\\partial^2 V_i}{\\partial x_j \\partial x_k} & = &
+        \\frac{\\partial^2 f^2 g}{\\partial x_j \\partial x_k} & = &
         2 f \\left( g \\frac{\\partial^2 f}{\\partial x_j \\partial x_k}
         + \\frac{\\partial g}{\\partial x_j} \\frac{\\partial f}{\\partial x_k}
         + \\frac{\\partial f}{\\partial x_j} \\frac{\\partial g}{\\partial x_k} \\right) \\\\
