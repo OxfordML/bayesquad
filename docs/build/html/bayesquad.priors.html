@@ -1,0 +1,182 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>bayesquad.priors module &#8212; Batch Bayesian quadrature  documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Batch Bayesian quadrature  documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-bayesquad.priors">
+<span id="bayesquad-priors-module"></span><h1>bayesquad.priors module<a class="headerlink" href="#module-bayesquad.priors" title="Permalink to this headline">¶</a></h1>
+<p>Classes representing probability distributions, intended to be integrated against a likelihood.</p>
+<dl class="class">
+<dt id="bayesquad.priors.Gaussian">
+<em class="property">class </em><code class="descclassname">bayesquad.priors.</code><code class="descname">Gaussian</code><span class="sig-paren">(</span><em>mean: numpy.ndarray</em>, <em>covariance: numpy.ndarray</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/priors.html#Gaussian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Gaussian" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#bayesquad.priors.Prior" title="bayesquad.priors.Prior"><code class="xref py py-class docutils literal notranslate"><span class="pre">bayesquad.priors.Prior</span></code></a></p>
+<p>A multivariate Gaussian prior.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>mean</strong> – A 1D array of shape (num_dimensions).</li>
+<li><strong>covariance</strong> – A 2D array of shape (num_dimensions, num_dimensions).</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="bayesquad.priors.Gaussian.mean">
+<code class="descname">mean</code><a class="headerlink" href="#bayesquad.priors.Gaussian.mean" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>ndarray</em> – A 1D array of shape (num_dimensions).</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bayesquad.priors.Gaussian.covariance">
+<code class="descname">covariance</code><a class="headerlink" href="#bayesquad.priors.Gaussian.covariance" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>ndarray</em> – A 2D array of shape (num_dimensions, num_dimensions).</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bayesquad.priors.Gaussian.precision">
+<code class="descname">precision</code><a class="headerlink" href="#bayesquad.priors.Gaussian.precision" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>ndarray</em> – The inverse of the covariance matrix.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayesquad.priors.Gaussian.gradient">
+<code class="descname">gradient</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/bayesquad/priors.html#Gaussian.gradient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Gaussian.gradient" title="Permalink to this definition">¶</a></dt>
+<dd><p>See <a class="reference internal" href="#bayesquad.priors.Prior.gradient" title="bayesquad.priors.Prior.gradient"><code class="xref py py-func docutils literal notranslate"><span class="pre">gradient()</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayesquad.priors.Gaussian.sample">
+<code class="descname">sample</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/priors.html#Gaussian.sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Gaussian.sample" title="Permalink to this definition">¶</a></dt>
+<dd><p>See <a class="reference internal" href="#bayesquad.priors.Prior.sample" title="bayesquad.priors.Prior.sample"><code class="xref py py-func docutils literal notranslate"><span class="pre">sample()</span></code></a></p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="bayesquad.priors.Prior">
+<em class="property">class </em><code class="descclassname">bayesquad.priors.</code><code class="descname">Prior</code><a class="reference internal" href="_modules/bayesquad/priors.html#Prior"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Prior" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></p>
+<p>A prior, providing methods for sampling, and for pointwise evaluation of the pdf and its derivatives.</p>
+<dl class="method">
+<dt id="bayesquad.priors.Prior.gradient">
+<code class="descname">gradient</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/bayesquad/priors.html#Prior.gradient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Prior.gradient" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the jacobian and hessian of the prior’s pdf at the given set of points.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – A 2D array of the points at which to evaluate the derivatives, with shape (num_points, num_dimensions).</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><ul class="simple">
+<li><em>jacobian</em> – A 2D array of shape (num_points, num_dimensions), containing the value of the jacobian at each point.</li>
+<li><em>hessian</em> – A 3D array of shape (num_points, num_dimensions, num_dimensions), whose (i, j, k)-th element is the
+(j, k)-th mixed partial derivative of the pdf at the i-th point of <cite>x</cite>.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayesquad.priors.Prior.sample">
+<code class="descname">sample</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/priors.html#Prior.sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Prior.sample" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sample a point from the prior.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A sample from the prior, as a 1D array of shape (num_dimensions).</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">ndarray</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/bayesquad.priors.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Batch Bayesian quadrature  documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Ed Wagstaff.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.8.
+    </div>
+  </body>
+</html>

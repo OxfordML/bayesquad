@@ -1,0 +1,228 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>bayesquad.optimisation &#8212; Batch Bayesian quadrature  documentation</title>
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Batch Bayesian quadrature  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for bayesquad.optimisation</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utility functions wrapping a scipy optimizer.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">wraps</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.optimize</span>
+<span class="kn">from</span> <span class="nn">numpy</span> <span class="k">import</span> <span class="n">ndarray</span>
+
+<span class="n">DEFAULT_MINIMIZER_KWARGS</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;BFGS&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;jac&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                            <span class="s1">&#39;options&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;gtol&#39;</span><span class="p">:</span> <span class="mf">1e-2</span><span class="p">}}</span>
+
+
+<div class="viewcode-block" id="multi_start_maximise_experimental"><a class="viewcode-back" href="../../bayesquad.optimisation.html#bayesquad.optimisation.multi_start_maximise_experimental">[docs]</a><span class="k">def</span> <span class="nf">multi_start_maximise_experimental</span><span class="p">(</span><span class="n">objective_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+                                      <span class="n">initial_points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Run multi-start maximisation of the given objective function.</span>
+
+<span class="sd">    Warnings</span>
+<span class="sd">    --------</span>
+<span class="sd">    This is a hack to take advantage of fast vectorised computation and avoid expensive python loops. There are some</span>
+<span class="sd">    issues with this method!</span>
+
+<span class="sd">    The objective function provided here must be a vectorised function. We take advantage of the fast computation of</span>
+<span class="sd">    vectorised functions to view a multi-start optimisation as a single pass of a higher-dimensional optimisation,</span>
+<span class="sd">    rather than several passes of a low-dimensional optimisation (which would require an expensive python loop). We</span>
+<span class="sd">    simply concatenate all the points where the function is to be evaluated into a single high-dimensional vector, give</span>
+<span class="sd">    the function value as the sum of all the individual function values, and give the jacobian as the concatenation of</span>
+<span class="sd">    all the individual jacobians. In this way we can essentially perform many optimisations in parallel. Note that</span>
+<span class="sd">    (among other issues) there is an issue here with the stopping condition: we can only consider all optimisations</span>
+<span class="sd">    together, so even if most have come very close to an optimum, the process will continue as long as one is far away.</span>
+<span class="sd">    However, this hack does seem to perform well in practice.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    objective_function</span>
+<span class="sd">        Function to be maximised. Must return both the function value and the jacobian. Must also accept a 2D array of</span>
+<span class="sd">        points, returning a 1D array and a 2D array for the function values and jacobians respectively.</span>
+<span class="sd">    initial_points</span>
+<span class="sd">        A list of arrays, each of shape (num_dimensions).</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">        Keyword arguments will be included in the &#39;options&#39; dict passed to the underlying scipy optimiser.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The location of the found maximum.</span>
+<span class="sd">    float</span>
+<span class="sd">        The value of the objective function at the found maximum.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">minimizer_kwargs</span> <span class="o">=</span> <span class="n">DEFAULT_MINIMIZER_KWARGS</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">minimizer_kwargs</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">minimizer_kwargs</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">}</span>  <span class="c1"># This merges the two dicts.</span>
+
+    <span class="n">initial_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">initial_points</span><span class="p">)</span>
+    <span class="n">num_initial_points</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">initial_points</span><span class="p">)</span>
+    <span class="n">num_dims</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">initial_points</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># The magnitude of the jacobian will grow with the number of initial points once we concatenate them all, so we need</span>
+    <span class="c1"># to up the gradient tolerance.</span>
+    <span class="n">gtol</span> <span class="o">=</span> <span class="n">minimizer_kwargs</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">][</span><span class="s1">&#39;gtol&#39;</span><span class="p">]</span>
+    <span class="n">minimizer_kwargs</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">][</span><span class="s1">&#39;gtol&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gtol</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">num_initial_points</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">function_to_minimise</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">inner_args</span><span class="p">,</span> <span class="o">**</span><span class="n">inner_kwargs</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="n">num_initial_points</span><span class="p">,</span> <span class="n">num_dims</span><span class="p">))</span>
+
+        <span class="n">value</span><span class="p">,</span> <span class="n">jacobian</span> <span class="o">=</span> <span class="n">objective_function</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">inner_args</span><span class="p">,</span> <span class="o">**</span><span class="n">inner_kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="o">-</span><span class="n">value</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="o">-</span><span class="n">jacobian</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+    <span class="n">maximum</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">function_to_minimise</span><span class="p">,</span> <span class="n">initial_point</span><span class="p">,</span> <span class="o">**</span><span class="n">minimizer_kwargs</span><span class="p">)</span>
+    <span class="n">maxima</span> <span class="o">=</span> <span class="n">maximum</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">num_initial_points</span><span class="p">,</span> <span class="n">num_dims</span><span class="p">)</span>
+
+    <span class="n">values</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">objective_function</span><span class="p">(</span><span class="n">maxima</span><span class="p">)</span>
+    <span class="n">max_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+
+    <span class="n">optimal_x</span> <span class="o">=</span> <span class="n">maxima</span><span class="p">[</span><span class="n">max_index</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">optimal_y</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">max_index</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">optimal_x</span><span class="p">,</span> <span class="n">optimal_y</span></div>
+
+
+<div class="viewcode-block" id="multi_start_maximise"><a class="viewcode-back" href="../../bayesquad.optimisation.html#bayesquad.optimisation.multi_start_maximise">[docs]</a><span class="k">def</span> <span class="nf">multi_start_maximise</span><span class="p">(</span><span class="n">objective_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+                         <span class="n">initial_points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Run multi-start maximisation of the given objective function.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    objective_function</span>
+<span class="sd">        Function to be maximised. Must return both the function value and the jacobian. Must also accept a 2D array of</span>
+<span class="sd">        points, returning a 1D array and a 2D array for the function values and jacobians respectively.</span>
+<span class="sd">    initial_points</span>
+<span class="sd">        A list of arrays, each of shape (num_dimensions).</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">        Keyword arguments will be included in the &#39;options&#39; dict passed to the underlying scipy optimiser.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The location of the found maximum.</span>
+<span class="sd">    float</span>
+<span class="sd">        The value of the objective function at the found maximum.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">minimizer_kwargs</span> <span class="o">=</span> <span class="n">DEFAULT_MINIMIZER_KWARGS</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">minimizer_kwargs</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">minimizer_kwargs</span><span class="p">[</span><span class="s1">&#39;options&#39;</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">}</span>  <span class="c1"># This merges the two dicts.</span>
+
+    <span class="k">def</span> <span class="nf">function_to_minimise</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">inner_args</span><span class="p">,</span> <span class="o">**</span><span class="n">inner_kwargs</span><span class="p">):</span>
+        <span class="n">value</span><span class="p">,</span> <span class="n">jacobian</span> <span class="o">=</span> <span class="n">objective_function</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">inner_args</span><span class="p">,</span> <span class="o">**</span><span class="n">inner_kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="o">-</span><span class="n">value</span><span class="p">,</span> <span class="o">-</span><span class="n">jacobian</span>
+
+    <span class="n">all_maxima</span> <span class="o">=</span> <span class="p">[</span><span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">function_to_minimise</span><span class="p">,</span> <span class="n">initial_point</span><span class="p">,</span> <span class="o">**</span><span class="n">minimizer_kwargs</span><span class="p">)</span>
+                  <span class="k">for</span> <span class="n">initial_point</span> <span class="ow">in</span> <span class="n">initial_points</span><span class="p">]</span>
+    <span class="n">maxima_x</span><span class="p">,</span> <span class="n">maxima_y</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">[(</span><span class="n">opt</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="n">opt</span><span class="o">.</span><span class="n">fun</span><span class="p">)</span> <span class="k">for</span> <span class="n">opt</span> <span class="ow">in</span> <span class="n">all_maxima</span><span class="p">])</span>
+
+    <span class="n">max_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">maxima_y</span><span class="p">)</span>
+
+    <span class="n">optimal_x</span> <span class="o">=</span> <span class="n">maxima_x</span><span class="p">[</span><span class="n">max_index</span><span class="p">]</span>
+    <span class="n">optimal_y</span> <span class="o">=</span> <span class="n">maxima_y</span><span class="p">[</span><span class="n">max_index</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">optimal_x</span><span class="p">,</span> <span class="n">optimal_y</span></div>
+
+
+<div class="viewcode-block" id="multi_start_maximise_log"><a class="viewcode-back" href="../../bayesquad.optimisation.html#bayesquad.optimisation.multi_start_maximise_log">[docs]</a><span class="k">def</span> <span class="nf">multi_start_maximise_log</span><span class="p">(</span><span class="n">objective_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+                             <span class="n">initial_points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Maximise the given objective function in log space. This may be significantly easier for functions with a high</span>
+<span class="sd">    dynamic range.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    :func:`~multi_start_maximise_experimental` : `multi_start_maximise_log` is a thin wrapper around this function. See</span>
+<span class="sd">    this function for further details on parameters and return values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">objective_function</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">log_objective_function</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">inner_args</span><span class="p">,</span> <span class="o">**</span><span class="n">inner_kwargs</span><span class="p">):</span>
+        <span class="n">value</span><span class="p">,</span> <span class="n">jacobian</span> <span class="o">=</span> <span class="n">objective_function</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">inner_args</span><span class="p">,</span> <span class="o">**</span><span class="n">inner_kwargs</span><span class="p">)</span>
+
+        <span class="n">log_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="c1"># We need expand_dims here because value is lower-dimensional than jacobian, but they must have the same</span>
+        <span class="c1"># dimensionality for numpy broadcasting to work here.</span>
+        <span class="n">log_jacobian</span> <span class="o">=</span> <span class="n">jacobian</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">log_value</span><span class="p">,</span> <span class="n">log_jacobian</span>
+
+    <span class="n">optimal_x</span><span class="p">,</span> <span class="n">optimal_value</span> <span class="o">=</span> <span class="n">multi_start_maximise</span><span class="p">(</span><span class="n">log_objective_function</span><span class="p">,</span> <span class="n">initial_points</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">optimal_x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">optimal_value</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Batch Bayesian quadrature  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Ed Wagstaff.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.8.
+    </div>
+  </body>
+</html>

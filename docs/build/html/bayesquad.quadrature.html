@@ -1,0 +1,195 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>bayesquad.quadrature module &#8212; Batch Bayesian quadrature  documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Batch Bayesian quadrature  documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-bayesquad.quadrature">
+<span id="bayesquad-quadrature-module"></span><h1>bayesquad.quadrature module<a class="headerlink" href="#module-bayesquad.quadrature" title="Permalink to this headline">¶</a></h1>
+<p>Provides a model of the integrand, with the capability to perform Bayesian quadrature.</p>
+<dl class="class">
+<dt id="bayesquad.quadrature.IntegrandModel">
+<em class="property">class </em><code class="descclassname">bayesquad.quadrature.</code><code class="descname">IntegrandModel</code><span class="sig-paren">(</span><em>warped_gp: bayesquad.gps.WarpedGP</em>, <em>prior: bayesquad.priors.Prior</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/quadrature.html#IntegrandModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.quadrature.IntegrandModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represents the product of a warped Gaussian Process and a prior.</p>
+<p>Typically, this product is the function that we’re interested in integrating.</p>
+<dl class="method">
+<dt id="bayesquad.quadrature.IntegrandModel.integral_mean">
+<code class="descname">integral_mean</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; float<a class="reference internal" href="_modules/bayesquad/quadrature.html#IntegrandModel.integral_mean"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.quadrature.IntegrandModel.integral_mean" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the mean of the integral of the function under this model.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayesquad.quadrature.IntegrandModel.posterior_mean_and_variance">
+<code class="descname">posterior_mean_and_variance</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/bayesquad/quadrature.html#IntegrandModel.posterior_mean_and_variance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.quadrature.IntegrandModel.posterior_mean_and_variance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the posterior mean and variance of the product of warped GP and prior at a point, or a set of points.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – The point(s) at which to evaluate the posterior mean and variance. A 2D array of shape
+(num_points, num_dimensions), or a 1D array of shape (num_dimensions).</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><ul class="simple">
+<li><strong>mean</strong> (<em>ndarray</em>) – A 1D array of shape (num_points) if the input was 2D, or a 0D array if the input was 1D. The <span class="math notranslate nohighlight">\(i\)</span>-th
+element is the posterior mean at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</li>
+<li><strong>variance</strong> (<em>ndarray</em>) – A 1D array of shape (num_points) if the input was 2D, or a 0D array if the input was 1D. The <span class="math notranslate nohighlight">\(i\)</span>-th
+element is the posterior variance at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayesquad.quadrature.IntegrandModel.posterior_variance_hessian">
+<code class="descname">posterior_variance_hessian</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/quadrature.html#IntegrandModel.posterior_variance_hessian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.quadrature.IntegrandModel.posterior_variance_hessian" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the hessian of the posterior variance of the product of warped GP and prior at a point, or set of points.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – The point(s) at which to evaluate the hessian. A 2D array of shape (num_points, num_dimensions), or a 1D
+array of shape (num_dimensions).</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>hessian</strong> – A 3D array of shape (num_points, num_dimensions, num_dimensions) if the input was 2D, or a 2D array of shape
+(num_dimensions, num_dimensions) if the input was 1D. The <span class="math notranslate nohighlight">\((i, j, k)\)</span>-th element is the
+<span class="math notranslate nohighlight">\((j, k)\)</span>-th mixed partial derivative of the posterior variance at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">ndarray</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>Writing <span class="math notranslate nohighlight">\(\pi(x)\)</span> for the prior, and <span class="math notranslate nohighlight">\(V(x)\)</span> for the posterior variance, the posterior variance of
+the product is <span class="math notranslate nohighlight">\(\pi(x)^2 V(x)\)</span>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayesquad.quadrature.IntegrandModel.posterior_variance_jacobian">
+<code class="descname">posterior_variance_jacobian</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/quadrature.html#IntegrandModel.posterior_variance_jacobian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.quadrature.IntegrandModel.posterior_variance_jacobian" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the jacobian of the posterior variance of the product of warped GP and prior at a point or set of points.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – The point(s) at which to evaluate the jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D
+array of shape (num_dimensions).</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>jacobian</strong> – A 2D array of shape (num_points, num_dimensions) if the input was 2D, or a 1D array of shape
+(num_dimensions) if the input was 1D. The <span class="math notranslate nohighlight">\((i, j)\)</span>-th element is the <span class="math notranslate nohighlight">\(j\)</span>-th component of the
+jacobian of the posterior variance at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">ndarray</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>Writing <span class="math notranslate nohighlight">\(\pi(x)\)</span> for the prior, and <span class="math notranslate nohighlight">\(V(x)\)</span> for the posterior variance, the posterior variance of
+the product is <span class="math notranslate nohighlight">\(\pi(x)^2 V(x)\)</span>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayesquad.quadrature.IntegrandModel.update">
+<code class="descname">update</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em>, <em>y: numpy.ndarray</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/quadrature.html#IntegrandModel.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.quadrature.IntegrandModel.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add new data to the model.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>x</strong> – A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions).</li>
+<li><strong>y</strong> – A 1D array of shape (num_points). If X is 1D, this may also be a 0D array or float.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last"><code class="xref py py-exc docutils literal notranslate"><span class="pre">ValueError</span></code> – If the number of points in <cite>x</cite> does not equal the number of points in <cite>y</cite>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/bayesquad.quadrature.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Batch Bayesian quadrature  documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Ed Wagstaff.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.8.
+    </div>
+  </body>
+</html>

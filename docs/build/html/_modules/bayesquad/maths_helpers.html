@@ -1,0 +1,199 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>bayesquad.maths_helpers &#8212; Batch Bayesian quadrature  documentation</title>
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Batch Bayesian quadrature  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for bayesquad.maths_helpers</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;A home for complicated mathematical operations which are used multiple times in this package.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">numpy</span> <span class="k">import</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">newaxis</span>
+
+
+<div class="viewcode-block" id="jacobian_of_f_squared_times_g"><a class="viewcode-back" href="../../bayesquad.maths_helpers.html#bayesquad.maths_helpers.jacobian_of_f_squared_times_g">[docs]</a><span class="k">def</span> <span class="nf">jacobian_of_f_squared_times_g</span><span class="p">(</span><span class="o">*</span><span class="p">,</span>
+        <span class="n">f</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">f_jacobian</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">g</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">g_jacobian</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Given two functions f and g, along with their jacobians, returns the jacobian of the function f^2 * g.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    f</span>
+<span class="sd">        A 1D array whose :math:`i`-th element is the value of the function :math:`f` at point :math:`x_i`.</span>
+<span class="sd">    f_jacobian</span>
+<span class="sd">        A 2D array whose :math:`(i,j)`-th element is the :math:`j`-th component of the jacobian of :math:`f` at point</span>
+<span class="sd">        :math:`x_i`.</span>
+<span class="sd">    g</span>
+<span class="sd">        A 1D array whose :math:`i`-th element is the value of the function :math:`g` at point :math:`x_i`.</span>
+<span class="sd">    g_jacobian</span>
+<span class="sd">        A 2D array whose :math:`(i,j)`-th element is the :math:`j`-th component of the jacobian of :math:`g` at point</span>
+<span class="sd">        :math:`x_i`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    jacobian : ndarray</span>
+<span class="sd">        A 2D array of shape (num_points, num_dimensions). The :math:`(i, j)`-th element is the :math:`j`-th component of</span>
+<span class="sd">        the jacobian of :math:`f^2 g` at point :math:`x_i`.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The required derivative is as follows:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \\frac{\\partial f^2 g}{\\partial x_j} &amp; = &amp; 2 f g \\frac{\\partial f}{\\partial x_j}</span>
+<span class="sd">        + f^2 \\frac{\\partial g}{\\partial x_j}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">f</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="n">g</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Function data must be a 1-dimensional array&quot;</span>
+    <span class="k">assert</span> <span class="n">f_jacobian</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="n">g_jacobian</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Function jacobian data must be a 2-dimensional array&quot;</span>
+
+    <span class="c1"># The jacobian has dimensions (num_points, num_dimensions). For NumPy to broadcast the calculations</span>
+    <span class="c1"># appropriately, we need to augment our 1D variables with a new axis.</span>
+    <span class="n">f</span><span class="p">,</span> <span class="n">g</span> <span class="o">=</span> <span class="n">f</span><span class="p">[:,</span> <span class="n">newaxis</span><span class="p">],</span> <span class="n">g</span><span class="p">[:,</span> <span class="n">newaxis</span><span class="p">]</span>
+
+    <span class="n">jacobian</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">f</span> <span class="o">*</span> <span class="n">g</span> <span class="o">*</span> <span class="n">f_jacobian</span> <span class="o">+</span> <span class="n">g_jacobian</span> <span class="o">*</span> <span class="n">f</span> <span class="o">**</span> <span class="mi">2</span>
+
+    <span class="k">return</span> <span class="n">jacobian</span></div>
+
+
+<div class="viewcode-block" id="hessian_of_f_squared_times_g"><a class="viewcode-back" href="../../bayesquad.maths_helpers.html#bayesquad.maths_helpers.hessian_of_f_squared_times_g">[docs]</a><span class="k">def</span> <span class="nf">hessian_of_f_squared_times_g</span><span class="p">(</span><span class="o">*</span><span class="p">,</span>
+        <span class="n">f</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">f_jacobian</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">f_hessian</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">g</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">g_jacobian</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">g_hessian</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Given two functions f and g, along with their jacobian and hessian, returns the hessian of the function f^2 * g.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    f</span>
+<span class="sd">        A 1D array whose :math:`i`-th element is the value of the function :math:`f` at point :math:`x_i`.</span>
+<span class="sd">    f_jacobian</span>
+<span class="sd">        A 2D array whose :math:`(i,j)`-th element is the :math:`j`-th component of the jacobian of :math:`f` at point</span>
+<span class="sd">        :math:`x_i`.</span>
+<span class="sd">    f_hessian</span>
+<span class="sd">        A 3D array whose :math:`(i,j,k)`-th element is the :math:`(j,k)`-th mixed partial derivative of :math:`f` at</span>
+<span class="sd">        point :math:`x_i`.</span>
+<span class="sd">    g</span>
+<span class="sd">        A 1D array whose :math:`i`-th element is the value of the function :math:`g` at point :math:`x_i`.</span>
+<span class="sd">    g_jacobian</span>
+<span class="sd">        A 2D array whose :math:`(i,j)`-th element is the :math:`j`-th component of the jacobian of :math:`g` at point</span>
+<span class="sd">        :math:`x_i`.</span>
+<span class="sd">    g_hessian</span>
+<span class="sd">        A 3D array whose :math:`(i,j,k)`-th element is the :math:`(j,k)`-th mixed partial derivative of :math:`g` at</span>
+<span class="sd">        point :math:`x_i`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    hessian : ndarray</span>
+<span class="sd">        A 3D array of shape (num_points, num_dimensions, num_dimensions). The :math:`(i, j, k)`-th element is the</span>
+<span class="sd">        :math:`(j, k)`-th mixed partial derivative of :math:`f^2 g` at point :math:`x_i`.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The required derivatives are as follows:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \\frac{\\partial f^2 g}{\\partial x_j} &amp; = &amp; 2 f g \\frac{\\partial f}{\\partial x_j}</span>
+<span class="sd">        + f^2 \\frac{\\partial g}{\\partial x_j} \\\\</span>
+<span class="sd">        \\frac{\\partial^2 V_i}{\\partial x_j \\partial x_k} &amp; = &amp;</span>
+<span class="sd">        2 f \\left( g \\frac{\\partial^2 f}{\\partial x_j \\partial x_k}</span>
+<span class="sd">        + \\frac{\\partial g}{\\partial x_j} \\frac{\\partial f}{\\partial x_k}</span>
+<span class="sd">        + \\frac{\\partial f}{\\partial x_j} \\frac{\\partial g}{\\partial x_k} \\right) \\\\</span>
+<span class="sd">        &amp; &amp; + 2 g \\frac{\\partial f}{\\partial x_j} \\frac{\\partial f}{\\partial x_k}</span>
+<span class="sd">        + f^2 \\frac{\\partial^2 f}{\\partial x_j \\partial x_k}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">f</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="n">g</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Function data must be a 1-dimensional array&quot;</span>
+    <span class="k">assert</span> <span class="n">f_jacobian</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="n">g_jacobian</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Function jacobian data must be a 2-dimensional array&quot;</span>
+    <span class="k">assert</span> <span class="n">f_hessian</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="n">g_hessian</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;Function hessian data must be a 3-dimensional array&quot;</span>
+
+    <span class="c1"># The hessian has dimensions (num_points, num_dimensions, num_dimensions). For NumPy to broadcast the calculations</span>
+    <span class="c1"># appropriately, we need to augment our 1D variables with new axes.</span>
+    <span class="n">f</span><span class="p">,</span> <span class="n">g</span> <span class="o">=</span> <span class="n">f</span><span class="p">[:,</span> <span class="n">newaxis</span><span class="p">,</span> <span class="n">newaxis</span><span class="p">],</span> <span class="n">g</span><span class="p">[:,</span> <span class="n">newaxis</span><span class="p">,</span> <span class="n">newaxis</span><span class="p">]</span>
+
+    <span class="c1"># The (i,j,k)-th element of these arrays is the j-th component of the jacobian at x_i (the k axis has size 1).</span>
+    <span class="n">f_jacobian_dxj</span><span class="p">,</span> <span class="n">g_jacobian_dxj</span> <span class="o">=</span> <span class="n">f_jacobian</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">newaxis</span><span class="p">],</span> <span class="n">g_jacobian</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">newaxis</span><span class="p">]</span>
+
+    <span class="c1"># The (i,j,k)-th element of these arrays is the k-th component of the jacobian at x_i (the j axis has size 1).</span>
+    <span class="n">f_jacobian_dxk</span><span class="p">,</span> <span class="n">g_jacobian_dxk</span> <span class="o">=</span> <span class="n">f_jacobian</span><span class="p">[:,</span> <span class="n">newaxis</span><span class="p">,</span> <span class="p">:],</span> <span class="n">g_jacobian</span><span class="p">[:,</span> <span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span>
+
+    <span class="n">hessian</span> <span class="o">=</span> \
+        <span class="mi">2</span> <span class="o">*</span> <span class="n">f</span> <span class="o">*</span> <span class="p">(</span>
+                <span class="n">f_hessian</span> <span class="o">*</span> <span class="n">g</span> <span class="o">+</span>
+                <span class="n">g_jacobian_dxj</span> <span class="o">*</span> <span class="n">f_jacobian_dxk</span> <span class="o">+</span>
+                <span class="n">f_jacobian_dxj</span> <span class="o">*</span> <span class="n">g_jacobian_dxk</span>
+        <span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">g</span> <span class="o">*</span> <span class="n">f_jacobian_dxj</span> <span class="o">*</span> <span class="n">f_jacobian_dxk</span> \
+        <span class="o">+</span> <span class="n">g_hessian</span> <span class="o">*</span> <span class="n">f</span> <span class="o">**</span> <span class="mi">2</span>
+
+    <span class="k">return</span> <span class="n">hessian</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Batch Bayesian quadrature  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Ed Wagstaff.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.8.
+    </div>
+  </body>
+</html>

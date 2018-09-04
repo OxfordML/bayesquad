@@ -1,0 +1,593 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>bayesquad.gps &#8212; Batch Bayesian quadrature  documentation</title>
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Batch Bayesian quadrature  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for bayesquad.gps</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Provides classes for Gaussian Process models, including models where a warping of the output space has been applied.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="k">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">GPy.core.gp</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">numpy</span> <span class="k">import</span> <span class="n">ndarray</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">kernel_gradients</span>
+<span class="kn">from</span> <span class="nn">._util</span> <span class="k">import</span> <span class="n">validate_dimensions</span>
+<span class="kn">from</span> <span class="nn">._cache</span> <span class="k">import</span> <span class="n">last_value_cache</span><span class="p">,</span> <span class="n">clear_last_value_caches</span>
+<span class="kn">from</span> <span class="nn">.decorators</span> <span class="k">import</span> <span class="n">flexible_array_dimensions</span>
+<span class="kn">from</span> <span class="nn">.maths_helpers</span> <span class="k">import</span> <span class="n">jacobian_of_f_squared_times_g</span><span class="p">,</span> <span class="n">hessian_of_f_squared_times_g</span>
+
+
+<div class="viewcode-block" id="GP"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP">[docs]</a><span class="k">class</span> <span class="nc">GP</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper around a GPy GP, providing some convenience methods and gradient calculations.</span>
+
+<span class="sd">    All methods and properties of a GPy GP may be accessed directly on an instance of this class, and will be passed</span>
+<span class="sd">    through to the wrapped GPy GP instance.</span>
+
+<span class="sd">    Warnings</span>
+<span class="sd">    --------</span>
+<span class="sd">    The following methods of this class cache their return value for the most recently passed argument:</span>
+<span class="sd">        - :func:`~posterior_mean_and_variance`</span>
+<span class="sd">        - :func:`~posterior_jacobians`</span>
+<span class="sd">        - :func:`~posterior_hessians`</span>
+
+<span class="sd">    This is a performance optimisation to prevent duplication of work (e.g. a :class:`~WarpedGP` may need to call</span>
+<span class="sd">    posterior_mean_and_variance to compute its own posterior mean, and then immediately do so again to compute its</span>
+<span class="sd">    posterior jacobians). The cache is cleared whenever the underlying GP is modified (this is implemented using the</span>
+<span class="sd">    observer mechanism provided by GPy). This should mean that a cache hit will only occur if the result of performing</span>
+<span class="sd">    the computation again would be exactly the same, but if necessary (e.g. if `update_model` has been disabled on the</span>
+<span class="sd">    underlying GPy `GP`), it is possible to clear the cache manually by calling the method :func:`_clear_cache` on an</span>
+<span class="sd">    instance of this class.</span>
+
+<span class="sd">    Note that the cache is not shared between instances - each instance of this class will have its own separate cache.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    :class:`GPy.core.gp.GP`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gpy_gp</span><span class="p">:</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">gp</span><span class="o">.</span><span class="n">GP</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gpy_gp</span> <span class="o">=</span> <span class="n">gpy_gp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span> <span class="o">=</span> <span class="n">gpy_gp</span><span class="o">.</span><span class="n">input_dim</span>
+
+        <span class="n">gpy_gp</span><span class="o">.</span><span class="n">add_observer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clear_cache</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+        <span class="c1"># Given a property foo which is defined on the GPy GP class, but not on this class, this method ensures that</span>
+        <span class="c1"># accessing self.foo will return self._gpy_gp.foo. Similarly, if some other code has gp = GP(), then gp.foo will</span>
+        <span class="c1"># return gp._gpy_gp.foo.</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gpy_gp</span><span class="p">,</span> <span class="n">item</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clear_cache</span><span class="p">()</span>
+
+<div class="viewcode-block" id="GP.posterior_mean_and_variance"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP.posterior_mean_and_variance">[docs]</a>    <span class="nd">@last_value_cache</span>
+    <span class="nd">@flexible_array_dimensions</span>
+    <span class="k">def</span> <span class="nf">posterior_mean_and_variance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Get the posterior mean and variance at a point, or a set of points.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            The point(s) at which to evaluate the posterior mean and variance. A 2D array of shape</span>
+<span class="sd">            (num_points, num_dimensions), or a 1D array of shape (num_dimensions).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        mean : ndarray</span>
+<span class="sd">            A 1D array of shape (num_points) if the input was 2D, or a 0D array if the input was 1D. The :math:`i`-th</span>
+<span class="sd">            element is the posterior mean at the :math:`i`-th point of `x`.</span>
+<span class="sd">        variance : ndarray</span>
+<span class="sd">            A 1D array of shape (num_points) if the input was 2D, or a 0D array if the input was 1D. The :math:`i`-th</span>
+<span class="sd">            element is the posterior variance at the :math:`i`-th point of `x`.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        GPy.core.gp.GP.predict : This method wraps GPy.core.gp.GP.predict, and will pass through any further positional</span>
+<span class="sd">            or keyword arguments.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">validate_dimensions</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">)</span>
+        <span class="n">mean</span><span class="p">,</span> <span class="n">variance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gpy_gp</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">mean</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">variance</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GP.posterior_jacobians"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP.posterior_jacobians">[docs]</a>    <span class="nd">@last_value_cache</span>
+    <span class="nd">@flexible_array_dimensions</span>
+    <span class="k">def</span> <span class="nf">posterior_jacobians</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Get the jacobian of the posterior mean and the jacobian of the posterior variance.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            The point(s) at which to evaluate the posterior jacobians. A 2D array of shape (num_points, num_dimensions),</span>
+<span class="sd">            or a 1D array of shape (num_dimensions).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        mean_jacobian : ndarray</span>
+<span class="sd">            An array of the same shape as the input. The :math:`(i, j)`-th element is the :math:`j`-th component of the</span>
+<span class="sd">            jacobian of the posterior mean at the :math:`i`-th point of `x`.</span>
+<span class="sd">        variance_jacobian : ndarray</span>
+<span class="sd">            An array of the same shape as the input. The :math:`(i, j)`-th element is the :math:`j`-th component of the</span>
+<span class="sd">            jacobian of the posterior variance at the :math:`i`-th point of `x`.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        GPy.core.gp.GP.predictive_gradients : This method wraps GPy.core.gp.GP.predictive_gradients, and will pass</span>
+<span class="sd">            through any additional positional or keyword arguments.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">validate_dimensions</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">)</span>
+        <span class="n">mean_jacobian</span><span class="p">,</span> <span class="n">variance_jacobian</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gpy_gp</span><span class="o">.</span><span class="n">predictive_gradients</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">mean_jacobian</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">variance_jacobian</span></div>
+
+<div class="viewcode-block" id="GP.posterior_hessians"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP.posterior_hessians">[docs]</a>    <span class="nd">@last_value_cache</span>
+    <span class="nd">@flexible_array_dimensions</span>
+    <span class="k">def</span> <span class="nf">posterior_hessians</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Get the hessian of the posterior mean and the hessian of the posterior variance.</span>
+
+<span class="sd">        Given a set of points, return the hessian of the posterior mean and the hessian of the posterior variance at</span>
+<span class="sd">        each point.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        mean_hessian : ndarray</span>
+<span class="sd">            A 3D array of shape (num_points, num_dimensions, num_dimensions) if the input was 2D, or a 2D array of shape</span>
+<span class="sd">            (num_dimensions, num_dimensions) if the input was 1D. The :math:`(i,j,k)`-th element is the :math:`(j,k)`-th</span>
+<span class="sd">            mixed partial derivative of the posterior mean at the :math:`i`-th point of `x`.</span>
+<span class="sd">        variance_hessian : ndarray</span>
+<span class="sd">            A 3D array of shape (num_points, num_dimensions, num_dimensions) if the input was 2D, or a 2D array of shape</span>
+<span class="sd">            (num_dimensions, num_dimensions) if the input was 1D. The :math:`(i,j,k)`-th element is the :math:`(j,k)`-th</span>
+<span class="sd">            mixed partial derivative of the posterior variance at the :math:`i`-th point of `x`.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This code deals with up to 4-dimensional tensors and getting all the dimensions lined up correctly is slightly</span>
+<span class="sd">        painful.</span>
+
+<span class="sd">        In the following:</span>
+
+<span class="sd">            - :math:`X_*` is the set of points at which to evaluate the hessians (i.e. the input to this method). In the</span>
+<span class="sd">              code, this is `x`.</span>
+<span class="sd">            - :math:`D = \{ X_D, Y_D \}` is our GP&#39;s data (with :math:`X_D` the locations of function evaluations, and</span>
+<span class="sd">              :math:`Y_D` the values of the function evaluations). In the code, these are `X_D` and `Y_D`</span>
+<span class="sd">            - :math:`n` is the number of points in :math:`X_*`.</span>
+<span class="sd">            - :math:`N` is the number of points in :math:`X_D`.</span>
+<span class="sd">            - :math:`d` is the number of dimensions.</span>
+<span class="sd">            - :math:`K` is the kernel of our GP. In the code, this is `self.kern.K`.</span>
+<span class="sd">            - :math:`K_D` is the matrix with elements :math:`(K_D)_{ij} = K(x_i, x_j)` for :math:`x_i, x_j \in X_D`. In</span>
+<span class="sd">              the code, :math:`K_D^{-1}` is `K_D_inv`.</span>
+<span class="sd">            - :math:`K_*` is the :math:`n` by :math:`N` matrix with elements :math:`(K_*)_{ij} = K(x_i, x_j)`</span>
+<span class="sd">              for :math:`x_i \in X_*, x_j \in X_D`. In the code, this is `K_star`.</span>
+<span class="sd">            - :math:`m(X_*)` is the posterior mean at :math:`X_*`, which is a vector of length :math:`n`.</span>
+<span class="sd">            - :math:`V(X_*)` is the posterior variance at :math:`X_*`, which is a vector of length :math:`n`.</span>
+
+<span class="sd">        The hessians we return depend on the jacobian and hessian of :math:`K_*`. Since :math:`K_*` is a matrix, the</span>
+<span class="sd">        jacobian is a 3D tensor, and the hessian is a 4D tensor. Writing :math:`J` for the jacobian and :math:`H` for</span>
+<span class="sd">        the hessian, we have:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            J_{ijk}  &amp; = &amp; \\frac{\\partial (K_*)_{ij}}{\\partial x_k} \\\\</span>
+<span class="sd">                     &amp; = &amp; \\frac{\\partial K((X_*)_i, (X_D)_j)}{\\partial x_k}</span>
+
+<span class="sd">            H_{ijkl} &amp; = &amp; \\frac{\\partial^2 (K_*)_{ij}}{\\partial x_k \\partial x_l} \\\\</span>
+<span class="sd">                     &amp; = &amp; \\frac{\\partial^2 K((X_*)_i, (X_D)_j)}{\\partial x_k \\partial x_l} \\\\</span>
+
+<span class="sd">        In the code, :math:`J` is `kernel_jacobian`, and :math:`H` is `kernel_hessian`. These have shape</span>
+<span class="sd">        (:math:`n, N, d`) and (:math:`n, N, d, d`) respectively.</span>
+
+<span class="sd">        The hessian of the mean is reasonably straightforward. We have:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            m(X_*)   &amp; = &amp; K_* K_D^{-1} Y_D \\\\</span>
+<span class="sd">            m(X_*)_i &amp; = &amp; (K_*)_{ij} (K_D^{-1})_{jk} (Y_D)_k \\\\</span>
+<span class="sd">            \\frac{\\partial^2 m(X_*)_i}{\\partial x_k \\partial x_l}</span>
+<span class="sd">                     &amp; = &amp;</span>
+<span class="sd">            H_{ijkl} (K_D^{-1})_{jm} (Y_D)_m \\\\</span>
+
+<span class="sd">        The hessian of the variance is more complicated. It is the difference of a data-independent diagonal part,</span>
+<span class="sd">        :math:`P`, and a data-dependent part, :math:`Q`, as follows:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            V(X_*)_i  &amp; = &amp; K((X_*)_i, (X_*)_i) - (K_*)_{ij} (K_D^{-1})_{jk} (K_*)_{ik} \\\\</span>
+<span class="sd">            \\frac{\\partial^2 V(X_*)_i}{\\partial x_j \\partial x_k} &amp; = &amp; P_{ijk} - Q_{ijk} \\\\</span>
+<span class="sd">            P_{ijk}  &amp; = &amp; \\frac{\\partial^2 K((X_*)_i, (X_*)_i)}{\\partial x_j \\partial x_k} \\\\</span>
+<span class="sd">            Q_{ijk}  &amp; = &amp; \\hat{Q}_{ijk} + \\hat{Q}_{ikj} \\\\</span>
+<span class="sd">            \\hat{Q}_{ijk} &amp; = &amp; \\frac{\\partial^2 (K_*)_{il}}{\\partial x_j \\partial x_k} (K_D^{-1})_{lm} (K_*)_im</span>
+<span class="sd">            + \\frac{\\partial (K_*)_{il}}{\\partial x_j}(K_D^{-1})_{lm}\\frac{\\partial (K_*)_{im}}{\\partial x_k} \\\\</span>
+<span class="sd">                           &amp; = &amp; H_{iljk} (K_D^{-1})_{lm} (K_*)_m + J_{ilj} (K_D^{-1})_{lm} J_{imk} \\\\</span>
+
+<span class="sd">        In the code, :math:`P` and :math:`Q` are `diagonal_hessian` and `data_dependent_hessian`, respectively.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">validate_dimensions</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">)</span>
+        <span class="n">kernel_jacobian</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kernel_jacobian</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">kernel_hessian</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_kernel_hessian</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">X_D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span>
+        <span class="n">Y_D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">))</span>
+
+        <span class="n">K_D_inv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">posterior</span><span class="o">.</span><span class="n">woodbury_inv</span>
+        <span class="n">K_star</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="o">.</span><span class="n">K</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">X_D</span><span class="p">))</span>
+
+        <span class="n">mean_hessian</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijkl,jm,m-&gt;ikl&#39;</span><span class="p">,</span> <span class="n">kernel_hessian</span><span class="p">,</span> <span class="n">K_D_inv</span><span class="p">,</span> <span class="n">Y_D</span><span class="p">,</span> <span class="n">optimize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">diagonal_hessian</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diagonal_hessian</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">data_dependent_hessian_half</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iljk,lm,im-&gt;ijk&#39;</span><span class="p">,</span> <span class="n">kernel_hessian</span><span class="p">,</span> <span class="n">K_D_inv</span><span class="p">,</span> <span class="n">K_star</span><span class="p">,</span> <span class="n">optimize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> \
+                                <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ilj,lm,imk-&gt;ijk&#39;</span><span class="p">,</span> <span class="n">kernel_jacobian</span><span class="p">,</span> <span class="n">K_D_inv</span><span class="p">,</span> <span class="n">kernel_jacobian</span><span class="p">,</span> <span class="n">optimize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">data_dependent_hessian</span> <span class="o">=</span> <span class="n">data_dependent_hessian_half</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">data_dependent_hessian_half</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">variance_hessian</span> <span class="o">=</span> <span class="n">diagonal_hessian</span> <span class="o">-</span> <span class="n">data_dependent_hessian</span>
+
+        <span class="k">return</span> <span class="n">mean_hessian</span><span class="p">,</span> <span class="n">variance_hessian</span></div>
+
+<div class="viewcode-block" id="GP.update"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]):</span>
+        <span class="sd">&quot;&quot;&quot;Add new data to the GP.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions).</span>
+<span class="sd">        y</span>
+<span class="sd">            A 1D array of shape (num_points). If X is 1D, this may also be a 0D array or float.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the number of points in `x` does not equal the number of points in `y`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">_validate_and_transform_for_gpy_update</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_XY</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_kernel_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernel_gradients</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_kernel_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernel_gradients</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_diagonal_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">kernel_gradients</span><span class="o">.</span><span class="n">diagonal_hessian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
+    <span class="c1"># noinspection PyUnusedLocal</span>
+    <span class="c1"># This is called with a keyword argument &quot;which&quot; by GPy when the underlying GP is updated. We allow this to be</span>
+    <span class="c1"># called with any set of arguments, but ignore them all.</span>
+    <span class="k">def</span> <span class="nf">_clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">clear_last_value_caches</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="WarpedGP"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WarpedGP">[docs]</a><span class="k">class</span> <span class="nc">WarpedGP</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents a Gaussian Process where the output space has been warped.</span>
+
+<span class="sd">    Models of this type will make use of an underlying Gaussian Process model, and work with its outputs to produce a</span>
+<span class="sd">    warped model. Instances of this class each have an instance of `GP` for this underlying model.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gp</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">GP</span><span class="p">,</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">gp</span><span class="o">.</span><span class="n">GP</span><span class="p">]):</span>
+        <span class="sd">&quot;&quot;&quot;Create a Warped GP from a GP.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        gp</span>
+<span class="sd">            Either a `GPy.core.gp.GP`, which will be wrapped in a `GP`, or a `GP`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">gp</span><span class="p">,</span> <span class="n">GP</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span> <span class="o">=</span> <span class="n">gp</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">gp</span><span class="p">,</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">gp</span><span class="o">.</span><span class="n">GP</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span> <span class="o">=</span> <span class="n">GP</span><span class="p">(</span><span class="n">gp</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Argument to __init__ must be a GP.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">dimensions</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GPy</span><span class="o">.</span><span class="n">kern</span><span class="o">.</span><span class="n">Kern</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">kern</span>
+
+<div class="viewcode-block" id="WarpedGP.posterior_mean_and_variance"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WarpedGP.posterior_mean_and_variance">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">posterior_mean_and_variance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Get the posterior mean and variance at a point, or a set of points.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            The point(s) at which to evaluate the posterior mean and variance. A 2D array of shape</span>
+<span class="sd">            (num_points, num_dimensions), or a 1D array of shape (num_dimensions).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        mean : ndarray</span>
+<span class="sd">            A 1D array of shape (num_points) if the input was 2D, or a 0D array if the input was 1D. The :math:`i`-th</span>
+<span class="sd">            element is the posterior mean at the :math:`i`-th point of `x`.</span>
+<span class="sd">        variance : ndarray</span>
+<span class="sd">            A 1D array of shape (num_points) if the input was 2D, or a 0D array if the input was 1D. The :math:`i`-th</span>
+<span class="sd">            element is the posterior variance at the :math:`i`-th point of `x`.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="WarpedGP.posterior_variance_jacobian"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WarpedGP.posterior_variance_jacobian">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">posterior_variance_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get the jacobian of the posterior variance.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            The point(s) at which to evaluate the jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
+<span class="sd">            array of shape (num_dimensions).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        jacobian : ndarray</span>
+<span class="sd">            A 2D array of shape (num_points, num_dimensions) if the input was 2D, or a 1D array of shape</span>
+<span class="sd">            (num_dimensions) if the input was 1D. The :math:`(i, j)`-th element is the :math:`j`-th component of the</span>
+<span class="sd">            jacobian of the posterior variance at the :math:`i`-th point of `x`.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="WarpedGP.posterior_variance_hessian"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WarpedGP.posterior_variance_hessian">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">posterior_variance_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get the hessian of the posterior variance.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            The point(s) at which to evaluate the hessian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
+<span class="sd">            array of shape (num_dimensions).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        hessian : ndarray</span>
+<span class="sd">            A 3D array of shape (num_points, num_dimensions, num_dimensions) if the input was 2D, or a 2D array of shape</span>
+<span class="sd">            (num_dimensions, num_dimensions) if the input was 1D. The :math:`(i, j, k)`-th element is the</span>
+<span class="sd">            :math:`(j, k)`-th mixed partial derivative of the posterior variance at the :math:`i`-th point of `x`.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="WarpedGP.update"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WarpedGP.update">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add new data to the GP.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions).</span>
+<span class="sd">        y</span>
+<span class="sd">            A 1D array of shape (num_points). If X is 1D, this may also be a 0D array or float.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the number of points in `x` does not equal the number of points in `y`.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div></div>
+
+
+<div class="viewcode-block" id="WsabiLGP"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP">[docs]</a><span class="k">class</span> <span class="nc">WsabiLGP</span><span class="p">(</span><span class="n">WarpedGP</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An approximate model for a GP using a square-root warping of the output space, using a linearisation of the</span>
+<span class="sd">    inverse warping.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This method, termed &quot;WSABI-L&quot;, was introduced in [1]_ as one possible approximation to the square-root transform</span>
+<span class="sd">    dubbed &quot;WSABI&quot;.</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    .. [1] Gunter, Tom, et al. &quot;Sampling for inference in probabilistic models with fast Bayesian quadrature.&quot;</span>
+<span class="sd">       Advances in neural information processing systems. 2014.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gp</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">GP</span><span class="p">,</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">GP</span><span class="p">]):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">gp</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">=</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">gp</span><span class="o">.</span><span class="n">Y</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span>
+
+        <span class="c1"># We need to keep track of the original values of y, since whenever alpha changes, we&#39;ll need to apply the new</span>
+        <span class="c1"># transform to the old data. We also keep track of the corresponding values of x separately here, since this</span>
+        <span class="c1"># simplifies some operations.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span> <span class="o">=</span> <span class="p">[</span><span class="n">gp</span><span class="o">.</span><span class="n">Y</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span> <span class="o">=</span> <span class="p">[</span><span class="n">gp</span><span class="o">.</span><span class="n">X</span><span class="p">]</span>
+
+<div class="viewcode-block" id="WsabiLGP.posterior_mean_and_variance"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.posterior_mean_and_variance">[docs]</a>    <span class="nd">@flexible_array_dimensions</span>
+    <span class="k">def</span> <span class="nf">posterior_mean_and_variance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Get the posterior mean and variance at a point, or a set of points.</span>
+
+<span class="sd">        Overrides :func:`~WarpedGP.posterior_mean_and_variance` - please see that method&#39;s documentation for further</span>
+<span class="sd">        details on arguments and return values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">gp_mean</span><span class="p">,</span> <span class="n">gp_variance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">posterior_mean_and_variance</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">mean</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">+</span> <span class="n">gp_mean</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">variance</span> <span class="o">=</span> <span class="n">gp_variance</span> <span class="o">*</span> <span class="n">gp_mean</span> <span class="o">**</span> <span class="mi">2</span>
+
+        <span class="k">return</span> <span class="n">mean</span><span class="p">,</span> <span class="n">variance</span></div>
+
+<div class="viewcode-block" id="WsabiLGP.posterior_variance_jacobian"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.posterior_variance_jacobian">[docs]</a>    <span class="nd">@flexible_array_dimensions</span>
+    <span class="k">def</span> <span class="nf">posterior_variance_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get the jacobian of the posterior variance.</span>
+
+<span class="sd">        Overrides :func:`~WarpedGP.posterior_variance_jacobian` - please see that method&#39;s documentation for further</span>
+<span class="sd">        details on arguments and return values.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        With the following notation:</span>
+
+<span class="sd">            - :math:`X_i` for the :math:`i`-th point of the input array `x`</span>
+<span class="sd">            - :math:`m_i` for the posterior mean of the underlying GP at :math:`X_i`</span>
+<span class="sd">            - :math:`C_i` for the posterior variance of the underlying GP at :math:`X_i`</span>
+<span class="sd">            - :math:`V_i` for the posterior variance of the WSABI-L model at :math:`X_i`</span>
+
+<span class="sd">        we have :math:`V_i = m_i^2 C_i`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">gp_mean</span><span class="p">,</span> <span class="n">gp_variance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">posterior_mean_and_variance</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">gp_mean_jacobian</span><span class="p">,</span> <span class="n">gp_variance_jacobian</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">posterior_jacobians</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">jacobian_of_f_squared_times_g</span><span class="p">(</span>
+            <span class="n">f</span><span class="o">=</span><span class="n">gp_mean</span><span class="p">,</span> <span class="n">f_jacobian</span><span class="o">=</span><span class="n">gp_mean_jacobian</span><span class="p">,</span>
+            <span class="n">g</span><span class="o">=</span><span class="n">gp_variance</span><span class="p">,</span> <span class="n">g_jacobian</span><span class="o">=</span><span class="n">gp_variance_jacobian</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WsabiLGP.posterior_variance_hessian"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.posterior_variance_hessian">[docs]</a>    <span class="nd">@flexible_array_dimensions</span>
+    <span class="k">def</span> <span class="nf">posterior_variance_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Get the hessian of the posterior variance.</span>
+
+<span class="sd">        Overrides :func:`~WarpedGP.posterior_variance_hessian` - please see that method&#39;s documentation for further</span>
+<span class="sd">        details on arguments and return values.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        With the following notation:</span>
+
+<span class="sd">            - :math:`X_i` for the :math:`i`-th point of the input array `x`</span>
+<span class="sd">            - :math:`m_i` for the posterior mean of the underlying GP at :math:`X_i`</span>
+<span class="sd">            - :math:`C_i` for the posterior variance of the underlying GP at :math:`X_i`</span>
+<span class="sd">            - :math:`V_i` for the posterior variance of the WSABI-L model at :math:`X_i`</span>
+
+<span class="sd">        we have :math:`V_i = m_i^2 C_i`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">gp_mean</span><span class="p">,</span> <span class="n">gp_variance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">posterior_mean_and_variance</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">gp_mean_jacobian</span><span class="p">,</span> <span class="n">gp_variance_jacobian</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">posterior_jacobians</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">gp_mean_hessian</span><span class="p">,</span> <span class="n">gp_variance_hessian</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">posterior_hessians</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">hessian_of_f_squared_times_g</span><span class="p">(</span>
+            <span class="n">f</span><span class="o">=</span><span class="n">gp_mean</span><span class="p">,</span> <span class="n">f_jacobian</span><span class="o">=</span><span class="n">gp_mean_jacobian</span><span class="p">,</span> <span class="n">f_hessian</span><span class="o">=</span><span class="n">gp_mean_hessian</span><span class="p">,</span>
+            <span class="n">g</span><span class="o">=</span><span class="n">gp_variance</span><span class="p">,</span> <span class="n">g_jacobian</span><span class="o">=</span><span class="n">gp_variance_jacobian</span><span class="p">,</span> <span class="n">g_hessian</span><span class="o">=</span><span class="n">gp_variance_hessian</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="WsabiLGP.update"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add new data to the GP. If necessary, this will also update the parameter alpha to a value consistent with</span>
+<span class="sd">        the new data.</span>
+
+<span class="sd">        Overrides :func:`~WarpedGP.update` - please see that method&#39;s documentation for further details on arguments and</span>
+<span class="sd">        return values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Since we may need to directly modify the existing X and Y data on the underlying GP, we can&#39;t rely on the</span>
+        <span class="c1"># update method of `GP` to deal with all updates here, so we need to apply the same validation and</span>
+        <span class="c1"># transformation for dealing with the GPy data directly.</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">_validate_and_transform_for_gpy_update</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+        <span class="n">new_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mf">0.8</span> <span class="o">*</span> <span class="n">y</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">new_min</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_alpha_and_reprocess_data</span><span class="p">(</span><span class="n">new_min</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">warped_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warp</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">warped_y</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_warp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_update_alpha_and_reprocess_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">=</span> <span class="n">alpha</span>
+
+        <span class="n">warped_Y</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_warp</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span><span class="p">]</span>
+        <span class="n">all_warped_Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">warped_Y</span><span class="p">)</span>
+
+        <span class="n">all_X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">set_XY</span><span class="p">(</span><span class="n">all_X</span><span class="p">,</span> <span class="n">all_warped_Y</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_validate_and_transform_for_gpy_update</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that x and y have the right dimensionality and size to be passed to `GPy.core.gp.GP.set_XY`.&quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+    <span class="c1"># GPy expects y to have shape (num_points, 1)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">x_points</span><span class="p">,</span> <span class="n">y_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">x_points</span> <span class="o">!=</span> <span class="n">y_points</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The number of points in x (i.e. the size of the first dimension) must equal the number &quot;</span>
+                         <span class="s2">&quot;of points in y. x contained </span><span class="si">{}</span><span class="s2"> points, y contained </span><span class="si">{}</span><span class="s2"> points.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x_points</span><span class="p">,</span> <span class="n">y_points</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Batch Bayesian quadrature  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Ed Wagstaff.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.8.
+    </div>
+  </body>
+</html>
