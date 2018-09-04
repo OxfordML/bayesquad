@@ -46,7 +46,7 @@
 <span class="kn">import</span> <span class="nn">numpy.ma</span> <span class="k">as</span> <span class="nn">ma</span>
 <span class="kn">from</span> <span class="nn">numpy</span> <span class="k">import</span> <span class="n">ndarray</span>
 
-<span class="kn">from</span> <span class="nn">.optimisation</span> <span class="k">import</span> <span class="n">multi_start_maximise_log</span><span class="p">,</span> <span class="n">multi_start_maximise_experimental</span>
+<span class="kn">from</span> <span class="nn">.optimisation</span> <span class="k">import</span> <span class="n">multi_start_maximise_log</span><span class="p">,</span> <span class="n">multi_start_maximise</span>
 <span class="kn">from</span> <span class="nn">.plotting</span> <span class="k">import</span> <span class="n">returns_plottable</span>
 <span class="kn">from</span> <span class="nn">.quadrature</span> <span class="k">import</span> <span class="n">IntegrandModel</span>
 
@@ -110,15 +110,14 @@
     <span class="n">acquisition_function</span> <span class="o">=</span> <span class="n">_model_variance</span><span class="p">(</span><span class="n">integrand_model</span><span class="p">)</span>
     <span class="n">num_initial_points</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">integrand_model</span><span class="o">.</span><span class="n">dimensions</span>
 
-    <span class="n">initial_points</span> <span class="o">=</span> <span class="p">[</span><span class="n">integrand_model</span><span class="o">.</span><span class="n">prior</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_initial_points</span><span class="p">)]</span>
-
     <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">batch_size</span><span class="p">:</span>
         <span class="n">softmin_penalised_log_acquisition_function</span> <span class="o">=</span> \
             <span class="n">_get_soft_penalised_log_acquisition_function</span><span class="p">(</span><span class="n">acquisition_function</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">penaliser_gradients</span><span class="p">)</span>
 
-        <span class="n">batch_point</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">multi_start_maximise_experimental</span><span class="p">(</span><span class="n">softmin_penalised_log_acquisition_function</span><span class="p">,</span>
-                                                               <span class="n">initial_points</span><span class="p">,</span>
-                                                               <span class="n">gtol</span><span class="o">=</span><span class="mf">1e-1</span><span class="p">)</span>
+        <span class="n">initial_points</span> <span class="o">=</span> <span class="p">[</span><span class="n">integrand_model</span><span class="o">.</span><span class="n">prior</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_initial_points</span><span class="p">)]</span>
+        <span class="n">batch_point</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">multi_start_maximise</span><span class="p">(</span><span class="n">softmin_penalised_log_acquisition_function</span><span class="p">,</span>
+                                                  <span class="n">initial_points</span><span class="p">,</span>
+                                                  <span class="n">gtol</span><span class="o">=</span><span class="mf">1e-1</span><span class="p">)</span>
         <span class="n">batch</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">batch_point</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">batch_size</span><span class="p">:</span>
@@ -247,7 +246,7 @@
         <span class="n">scaled_function_values</span> <span class="o">=</span> <span class="p">(</span><span class="n">function_values</span> <span class="o">/</span> <span class="n">min_function_values</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="nb">max</span><span class="o">=</span><span class="mf">1e2</span><span class="p">)</span>
 
         <span class="n">scaled_inverse_power_sum</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">scaled_function_values</span> <span class="o">**</span> <span class="n">p</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-        <span class="n">values</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">scaled_inverse_power_sum</span><span class="p">)</span> <span class="o">/</span> <span class="n">p</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">min_function_values</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="o">-</span><span class="n">ma</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">scaled_inverse_power_sum</span><span class="p">)</span> <span class="o">/</span> <span class="n">p</span> <span class="o">+</span> <span class="n">ma</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">min_function_values</span><span class="p">)</span>
         <span class="n">values</span> <span class="o">=</span> <span class="n">ma</span><span class="o">.</span><span class="n">filled</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="o">-</span><span class="mf">1e3</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">calculate_jacobian</span><span class="p">:</span>
@@ -279,7 +278,12 @@
         <span class="n">value</span> <span class="o">=</span> <span class="n">distance</span> <span class="o">*</span> <span class="n">gradient</span>
 
         <span class="n">distance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">distance</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">jacobian</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">distance</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">centre</span><span class="p">)</span> <span class="o">*</span> <span class="n">gradient</span> <span class="o">/</span> <span class="n">distance</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="n">ma</span><span class="o">.</span><span class="n">masked_equal</span><span class="p">(</span><span class="n">distance</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># Avoid division by zero</span>
+
+        <span class="n">jacobian</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">centre</span><span class="p">)</span> <span class="o">*</span> <span class="n">gradient</span> <span class="o">/</span> <span class="n">distance</span>
+
+        <span class="c1"># The jacobian isn&#39;t defined at the centre of the cone but we return a value to keep the optimiser happy.</span>
+        <span class="n">jacobian</span> <span class="o">=</span> <span class="n">ma</span><span class="o">.</span><span class="n">filled</span><span class="p">(</span><span class="n">jacobian</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">value</span><span class="p">,</span> <span class="n">jacobian</span>
 
