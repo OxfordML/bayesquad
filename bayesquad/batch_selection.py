@@ -78,7 +78,7 @@ def select_local_penalisation_batch(integrand_model: IntegrandModel, batch_size:
         initial_points = [integrand_model.prior.sample() for _ in range(num_initial_points)]
         batch_point, value = multi_start_maximise(softmin_penalised_log_acquisition_function,
                                                   initial_points,
-                                                  gtol=1e-1)
+                                                  gtol=1e-2)
         batch.append(batch_point)
 
         if len(batch) < batch_size:
