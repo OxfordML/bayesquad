@@ -101,6 +101,7 @@ def _get_local_initial_points(central_point, num_points):
     return [central_point + perturbation for perturbation in perturbations]
 
 
+@returns_plottable("Model variance")
 def _model_variance(integrand_model: IntegrandModel):
     def f(x, *, calculate_jacobian=True):
         """Evaluate the variance, and the jacobian of the variance, for the given `IntegrandModel` at a point, or a set
@@ -127,6 +128,7 @@ def _model_variance(integrand_model: IntegrandModel):
     return f
 
 
+@returns_plottable("Grad squared")
 def _variance_gradient_squared_and_jacobian(integrand_model: IntegrandModel):
     def f(x):
         variance_jacobian = integrand_model.posterior_variance_jacobian(x)
