@@ -132,13 +132,19 @@ def multi_start_maximise_log(objective_function: Callable,
     """
     @wraps(objective_function)
     def log_objective_function(x, *inner_args, **inner_kwargs):
-        value, jacobian = objective_function(x, *inner_args, **inner_kwargs)
+        import numpy.ma as ma
 
-        log_value = np.log(value)
+        value, jacobian = objective_function(x, *inner_args, **inner_kwargs)
+        masked_value = ma.masked_equal(value, 0)
+
+        log_value = ma.log(masked_value)
 
         # We need expand_dims here because value is lower-dimensional than jacobian, but they must have the same
         # dimensionality for numpy broadcasting to work here.
-        log_jacobian = jacobian / np.expand_dims(value, -1)
+        log_jacobian = jacobian / ma.expand_dims(masked_value, -1)
+
+        log_value = ma.filled(log_value, -1e100)
+        log_jacobian = ma.filled(log_jacobian, np.random.randn())
 
         return log_value, log_jacobian
 
