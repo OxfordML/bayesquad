@@ -211,7 +211,7 @@ def _get_soft_penalised_log_acquisition_function(acquisition_function, penaliser
         values = ma.filled(values, -1e3)
 
         if calculate_jacobian:
-            scaled_function_jacobians = (function_jacobians / min_function_values).clip(max=1e2)
+            scaled_function_jacobians = (function_jacobians / min_function_values).clip(max=1e2, min=-1e2)
             jacobian_numerator = (1 / (scaled_function_values ** (p + 1)) * scaled_function_jacobians).sum(axis=0)
             jacobians = jacobian_numerator / scaled_inverse_power_sum
             jacobians = ma.filled(jacobians, np.random.randn())
