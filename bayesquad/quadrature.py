@@ -160,15 +160,13 @@ def _compute_mean(prior: Gaussian, gp: WsabiLGP, kernel: RBF) -> float:
     kernel_variance = kernel.variance.values[0]
 
     X_D = gp._gp.X
-    Y_D = gp._gp.Y
-    K_D_inv = gp._gp.posterior.woodbury_inv
 
     mu = prior.mean
     sigma = prior.covariance
     sigma_inv = prior.precision
 
     nu = (X_D[:, newaxis, :] + X_D[newaxis, :, :]) / 2
-    A = K_D_inv @ Y_D
+    A = gp._gp.posterior.woodbury_vector
 
     L = np.exp(-(np.linalg.norm(X_D[:, newaxis, :] - X_D[newaxis, :, :], axis=2) ** 2)/(4 * kernel_lengthscale**2))
     L = kernel_variance ** 2 * L
