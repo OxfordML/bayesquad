@@ -186,6 +186,6 @@ def multi_start_maximise_log(objective_function: Callable,
     return optimal_x, np.exp(optimal_value)
 
 
-def _indices_where(array: ndarray[bool]) -> Tuple:
+def _indices_where(array: ndarray) -> Tuple:
     """Returns the indices where the elements of `array` are True."""
     return np.nonzero(array)
