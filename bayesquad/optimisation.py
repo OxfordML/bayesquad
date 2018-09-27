@@ -7,18 +7,20 @@ import numpy as np
 import scipy.optimize
 from numpy import ndarray
 
+DEFAULT_GTOL = 1e-2
+
 DEFAULT_MINIMIZER_KWARGS = {'method': 'BFGS',
                             'jac': True,
-                            'options': {'gtol': 1e-2}}
+                            'options': {'gtol': DEFAULT_GTOL}}
 
 
-def multi_start_maximise_experimental(objective_function: Callable,
-                                      initial_points: List[ndarray], **kwargs) -> Tuple[ndarray, float]:
+def multi_start_maximise(objective_function: Callable,
+                         initial_points: List[ndarray], **kwargs) -> Tuple[ndarray, float]:
     """Run multi-start maximisation of the given objective function.
 
     Warnings
     --------
-    This is a hack to take advantage of fast vectorised computation and avoid expensive python loops. There are some
+    This is a hack to take advantage of fast vectorised computation and avoid expensive python loops. There may be some
     issues with this method!
 
     The objective function provided here must be a vectorised function. We take advantage of the fast computation of
@@ -29,7 +31,7 @@ def multi_start_maximise_experimental(objective_function: Callable,
     all the individual jacobians. In this way we can essentially perform many optimisations in parallel. Note that
     (among other issues) there is an issue here with the stopping condition: we can only consider all optimisations
     together, so even if most have come very close to an optimum, the process will continue as long as one is far away.
-    However, this hack does seem to perform well in practice.
+    However, this does seem to perform well in practice.
 
     Parameters
     ----------
@@ -55,22 +57,51 @@ def multi_start_maximise_experimental(objective_function: Callable,
     num_initial_points = len(initial_points)
     num_dims = len(initial_points[0])
 
-    # The magnitude of the jacobian will grow with the number of initial points once we concatenate them all, so we need
-    # to up the gradient tolerance.
     gtol = minimizer_kwargs['options']['gtol']
-    minimizer_kwargs['options']['gtol'] = gtol * np.sqrt(num_initial_points)
+
+    optimisation_terminated = np.full(num_initial_points, False)
+    located_optima = np.zeros((num_initial_points, num_dims))
+    located_optimal_values = np.full(num_initial_points, np.nan)
 
     def function_to_minimise(x, *inner_args, **inner_kwargs):
+        nonlocal optimisation_terminated
+
         x = np.reshape(x, (num_initial_points, num_dims))
 
         value, jacobian = objective_function(x, *inner_args, **inner_kwargs)
 
-        return -value.sum(), -jacobian.ravel()
+        jacobian_norms = np.linalg.norm(jacobian, axis=1, ord=np.inf)
+        new_optimum_found = np.logical_and(jacobian_norms < gtol,
+                                           np.logical_not(optimisation_terminated))
+
+        new_optima_indices = _indices_where(new_optimum_found)
+
+        located_optima[new_optima_indices] = x[new_optima_indices]
+        located_optimal_values[new_optima_indices] = value[new_optima_indices]
+
+        optimisation_terminated = np.logical_or(optimisation_terminated,
+                                                (jacobian_norms < gtol))
+        terminated_indices = _indices_where(optimisation_terminated)
+
+        value[terminated_indices] = located_optimal_values[terminated_indices]
+
+        dummy_jacobian = np.zeros(num_dims)
+        jacobian[terminated_indices] = dummy_jacobian
+
+        combined_value, combined_jacobian = -value.sum(), -jacobian.ravel()
+
+        if not np.isfinite(combined_value) or not np.all(np.isfinite(combined_jacobian)):
+            raise FloatingPointError("Objective function for multi-start optimisation returned NaN or infinity.")
+
+        return combined_value, combined_jacobian
 
     maximum = scipy.optimize.minimize(function_to_minimise, initial_point, **minimizer_kwargs)
     maxima = maximum.x.reshape(num_initial_points, num_dims)
 
-    values, _ = objective_function(maxima)
+    failed_indices = _indices_where(np.isnan(located_optimal_values))
+    located_optima[failed_indices] = maxima[failed_indices]
+
+    values, _ = objective_function(located_optima)
     max_index = np.argmax(values)
 
     optimal_x = maxima[max_index, :]
@@ -79,9 +110,11 @@ def multi_start_maximise_experimental(objective_function: Callable,
     return optimal_x, optimal_y
 
 
-def multi_start_maximise(objective_function: Callable,
+def multi_start_maximise_slow(objective_function: Callable,
                          initial_points: List[ndarray], **kwargs) -> Tuple[ndarray, float]:
     """Run multi-start maximisation of the given objective function.
+
+    This function performs the multi-start maximisation naively by running a Python loop over the initial points.
 
     Parameters
     ----------
@@ -151,3 +184,8 @@ def multi_start_maximise_log(objective_function: Callable,
     optimal_x, optimal_value = multi_start_maximise(log_objective_function, initial_points, **kwargs)
 
     return optimal_x, np.exp(optimal_value)
+
+
+def _indices_where(array: ndarray[bool]) -> Tuple:
+    """Returns the indices where the elements of `array` are True."""
+    return np.nonzero(array)
