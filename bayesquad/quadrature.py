@@ -132,6 +132,12 @@ class IntegrandModel:
         """
         self.warped_gp.update(x, y)
 
+    def fantasise(self, x, y):
+        self.warped_gp.fantasise(x, y)
+
+    def remove_fantasies(self):
+        self.warped_gp.remove_fantasies()
+
     def integral_mean(self) -> float:
         """Compute the mean of the integral of the function under this model."""
         return _compute_mean(self.prior, self.warped_gp, self.warped_gp.kernel)

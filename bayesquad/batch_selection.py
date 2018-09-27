@@ -12,6 +12,8 @@ from .plotting import returns_plottable
 from .quadrature import IntegrandModel
 
 LOCAL_PENALISATION = "Local Penalisation"
+KRIGING_BELIEVER = "Kriging Believer"
+KRIGING_OPTIMIST = "Kriging Optimist"
 
 
 def select_batch(integrand_model: IntegrandModel,
@@ -28,6 +30,8 @@ def select_batch(integrand_model: IntegrandModel,
     batch_method
         The method by which to compute the new batch. Currently supported methods are:
             - "Local Penalisation"
+            - "Kriging Believer"
+            - "Kriging Optimist"
 
     Returns
     -------
@@ -36,8 +40,53 @@ def select_batch(integrand_model: IntegrandModel,
     """
     if batch_method == LOCAL_PENALISATION:
         return select_local_penalisation_batch(integrand_model, batch_size)
+    elif batch_method == KRIGING_BELIEVER:
+        return select_kriging_believer_batch(integrand_model, batch_size)
+    elif batch_method == KRIGING_OPTIMIST:
+        return select_kriging_optimist_batch(integrand_model, batch_size)
     else:
         raise NotImplementedError("{} is not a supported batch method.".format(batch_method))
+
+
+def select_kriging_believer_batch(integrand_model: IntegrandModel, batch_size: int) -> List[ndarray]:
+    batch = []
+
+    num_initial_points = 10 * integrand_model.dimensions
+
+    while len(batch) < batch_size:
+        acquisition_function = _model_variance(integrand_model)
+        initial_points = [integrand_model.prior.sample() for _ in range(num_initial_points)]
+
+        batch_point, value = multi_start_maximise_log(acquisition_function, initial_points)
+        mean_y, _ = integrand_model.posterior_mean_and_variance(batch_point)
+
+        batch.append(batch_point)
+        integrand_model.fantasise(batch_point, mean_y)
+
+    integrand_model.remove_fantasies()
+
+    return batch
+
+
+def select_kriging_optimist_batch(integrand_model: IntegrandModel, batch_size: int) -> List[ndarray]:
+    batch = []
+
+    num_initial_points = 10 * integrand_model.dimensions
+
+    while len(batch) < batch_size:
+        acquisition_function = _model_variance(integrand_model)
+        initial_points = [integrand_model.prior.sample() for _ in range(num_initial_points)]
+
+        batch_point, value = multi_start_maximise_log(acquisition_function, initial_points)
+        mean_y, var_y = integrand_model.posterior_mean_and_variance(batch_point)
+        optimistic_y = mean_y + np.sqrt(var_y)
+
+        batch.append(batch_point)
+        integrand_model.fantasise(batch_point, optimistic_y)
+
+    integrand_model.remove_fantasies()
+
+    return batch
 
 
 def select_local_penalisation_batch(integrand_model: IntegrandModel, batch_size: int) -> List[ndarray]:

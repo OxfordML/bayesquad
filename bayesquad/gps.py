@@ -362,6 +362,14 @@ class WarpedGP(ABC):
             If the number of points in `x` does not equal the number of points in `y`.
         """
 
+    @abstractmethod
+    def fantasise(self, x, y):
+        """QQ"""
+
+    @abstractmethod
+    def remove_fantasies(self):
+        """QQ"""
+
 
 class WsabiLGP(WarpedGP):
     """An approximate model for a GP using a square-root warping of the output space, using a linearisation of the
@@ -382,12 +390,16 @@ class WsabiLGP(WarpedGP):
         super().__init__(gp)
 
         self._alpha = 0.8 * min(*(gp.Y**2 / 2))
+        self._true_alpha = self._alpha
 
         # We need to keep track of the original values of y, since whenever alpha changes, we'll need to apply the new
         # transform to the old data. We also keep track of the corresponding values of x separately here, since this
         # simplifies some operations.
         self._unwarped_Y = [gp.Y**2 / 2]
         self._all_X = [gp.X]
+
+        self._fantasy_X = []
+        self._fantasy_Y = []
 
     @flexible_array_dimensions
     def posterior_mean_and_variance(self, x: ndarray) -> Tuple[ndarray, ndarray]:
@@ -479,11 +491,49 @@ class WsabiLGP(WarpedGP):
             warped_y = self._warp(y)
             self._gp.update(x, warped_y)
 
+    def fantasise(self, x, y):
+        x, y = _validate_and_transform_for_gpy_update(x, y)
+
+        self._fantasy_X.append(x)
+        self._fantasy_Y.append(y)
+
+        new_min = min(self._alpha, *(0.8 * y))
+
+        if new_min is not self._alpha:
+            self._fantasise_alpha_and_reprocess_data(new_min)
+        else:
+            warped_y = self._warp(y)
+            self._gp.update(x, warped_y)
+
+    def _fantasise_alpha_and_reprocess_data(self, alpha: float):
+        self._alpha = alpha
+
+        warped_Y = [self._warp(y) for y in self._unwarped_Y] + [self._warp(y) for y in self._fantasy_Y]
+        all_warped_Y = np.concatenate(warped_Y)
+
+        all_X = np.concatenate(self._all_X + self._fantasy_X)
+
+        self._gp.set_XY(all_X, all_warped_Y)
+
+    def remove_fantasies(self):
+        self._alpha = self._true_alpha
+
+        warped_Y = [self._warp(y) for y in self._unwarped_Y]
+        all_warped_Y = np.concatenate(warped_Y)
+
+        all_X = np.concatenate(self._all_X)
+
+        self._gp.set_XY(all_X, all_warped_Y)
+
+        self._fantasy_X = []
+        self._fantasy_Y = []
+
     def _warp(self, y: ndarray) -> ndarray:
         return np.sqrt(2 * (y - self._alpha))
 
     def _update_alpha_and_reprocess_data(self, alpha: float):
         self._alpha = alpha
+        self._true_alpha = alpha
 
         warped_Y = [self._warp(y) for y in self._unwarped_Y]
         all_warped_Y = np.concatenate(warped_Y)
