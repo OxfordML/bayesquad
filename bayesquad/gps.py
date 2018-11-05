@@ -1,16 +1,17 @@
 """Provides classes for Gaussian Process models, including models where a warping of the output space has been applied.
 """
-
-from abc import ABC, abstractmethod
-from typing import Tuple, Union
+from itertools import chain
 
 import GPy.core.gp
 import numpy as np
+from abc import ABC, abstractmethod
+from multimethod import multimethod
 from numpy import ndarray
+from typing import Tuple, Union, List, Iterable, Iterator
 
 from . import kernel_gradients
-from ._util import validate_dimensions
 from ._cache import last_value_cache, clear_last_value_caches
+from ._util import validate_dimensions
 from .decorators import flexible_array_dimensions
 from .maths_helpers import jacobian_of_f_squared_times_g, hessian_of_f_squared_times_g
 
@@ -363,12 +364,24 @@ class WarpedGP(ABC):
         """
 
     @abstractmethod
-    def fantasise(self, x, y):
-        """QQ"""
+    def remove(self, x: Union[ndarray, List[ndarray]], y: Union[ndarray, List[ndarray]]) -> None:
+        """Remove data from the GP.
 
-    @abstractmethod
-    def remove_fantasies(self):
-        """QQ"""
+        Parameters
+        ----------
+        x
+            A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions), or a list of such
+            arrays.
+        y
+            A 1D array of shape (num_points), or a list of such arrays. If `x` is 1D, this may also be a 0D array or
+            float. Must be of the same type as `x`.
+
+        Raises
+        ------
+        ValueError
+            If the number of points in `x` does not equal the number of points in `y`.
+            If `x` is an array and `y` is a list, or vice versa.
+        """
 
 
 class WsabiLGP(WarpedGP):
@@ -385,21 +398,22 @@ class WsabiLGP(WarpedGP):
     .. [1] Gunter, Tom, et al. "Sampling for inference in probabilistic models with fast Bayesian quadrature."
        Advances in neural information processing systems. 2014.
     """
+    _ALPHA_FACTOR = 0.8
 
     def __init__(self, gp: Union[GP, GPy.core.GP]):
         super().__init__(gp)
 
-        self._alpha = 0.8 * min(*(gp.Y**2 / 2))
-        self._true_alpha = self._alpha
+        self._alpha = 0
 
         # We need to keep track of the original values of y, since whenever alpha changes, we'll need to apply the new
-        # transform to the old data. We also keep track of the corresponding values of x separately here, since this
-        # simplifies some operations.
-        self._unwarped_Y = [gp.Y**2 / 2]
-        self._all_X = [gp.X]
+        # transform to the old data. We also keep track of the corresponding values of x separately here. We store
+        # these as a list of individual points so that points can more easily be removed from the GP if necessary (this
+        # is required for e.g. Kriging Believer).
+        unwarped_Y = self._unwarp(gp.Y)
+        self._unwarped_Y = _split_array_to_list_of_points(unwarped_Y)
+        self._all_X = _split_array_to_list_of_points(gp.X)
 
-        self._fantasy_X = []
-        self._fantasy_Y = []
+        self._alpha = self._ALPHA_FACTOR * min(*self._unwarped_Y)
 
     @flexible_array_dimensions
     def posterior_mean_and_variance(self, x: ndarray) -> Tuple[ndarray, ndarray]:
@@ -480,10 +494,10 @@ class WsabiLGP(WarpedGP):
         # transformation for dealing with the GPy data directly.
         x, y = _validate_and_transform_for_gpy_update(x, y)
 
-        self._all_X.append(x)
-        self._unwarped_Y.append(y)
+        self._all_X += _split_array_to_list_of_points(x)
+        self._unwarped_Y += _split_array_to_list_of_points(y)
 
-        new_min = min(self._alpha, *(0.8 * y))
+        new_min = min(self._alpha, *(self._ALPHA_FACTOR * y))
 
         if new_min is not self._alpha:
             self._update_alpha_and_reprocess_data(new_min)
@@ -491,49 +505,30 @@ class WsabiLGP(WarpedGP):
             warped_y = self._warp(y)
             self._gp.update(x, warped_y)
 
-    def fantasise(self, x, y):
-        x, y = _validate_and_transform_for_gpy_update(x, y)
+    def remove(self, x: Union[ndarray, List[ndarray]], y: Union[ndarray, List[ndarray]]) -> None:
+        """Remove data from the GP. If necessary, also update the parameter alpha to a value consistent with the
+        remaining data.
 
-        self._fantasy_X.append(x)
-        self._fantasy_Y.append(y)
+        Overrides :func:`~WarpedGP.remove` - please see that method's documentation for further details."""
+        # Test cases to write here
+        # List of 1D, list of 2D, list of mixed 1 and 2D
+        all_data_pairs = list(zip(self._all_X, self._unwarped_Y))
+        data_pairs_to_remove = _get_validated_pairs_of_points(x, y)
 
-        new_min = min(self._alpha, *(0.8 * y))
+        _remove_matching_pairs(all_data_pairs, pairs_to_remove=data_pairs_to_remove)
+        self._all_X, self._unwarped_Y = (list(data) for data in zip(*all_data_pairs))
 
-        if new_min is not self._alpha:
-            self._fantasise_alpha_and_reprocess_data(new_min)
-        else:
-            warped_y = self._warp(y)
-            self._gp.update(x, warped_y)
-
-    def _fantasise_alpha_and_reprocess_data(self, alpha: float):
-        self._alpha = alpha
-
-        warped_Y = [self._warp(y) for y in self._unwarped_Y] + [self._warp(y) for y in self._fantasy_Y]
-        all_warped_Y = np.concatenate(warped_Y)
-
-        all_X = np.concatenate(self._all_X + self._fantasy_X)
-
-        self._gp.set_XY(all_X, all_warped_Y)
-
-    def remove_fantasies(self):
-        self._alpha = self._true_alpha
-
-        warped_Y = [self._warp(y) for y in self._unwarped_Y]
-        all_warped_Y = np.concatenate(warped_Y)
-
-        all_X = np.concatenate(self._all_X)
-
-        self._gp.set_XY(all_X, all_warped_Y)
-
-        self._fantasy_X = []
-        self._fantasy_Y = []
+        alpha = self._ALPHA_FACTOR * min(*self._unwarped_Y)
+        self._update_alpha_and_reprocess_data(alpha)
 
     def _warp(self, y: ndarray) -> ndarray:
         return np.sqrt(2 * (y - self._alpha))
 
+    def _unwarp(self, y: ndarray) -> ndarray:
+        return (y ** 2) / 2 + self._alpha
+
     def _update_alpha_and_reprocess_data(self, alpha: float):
         self._alpha = alpha
-        self._true_alpha = alpha
 
         warped_Y = [self._warp(y) for y in self._unwarped_Y]
         all_warped_Y = np.concatenate(warped_Y)
@@ -541,6 +536,33 @@ class WsabiLGP(WarpedGP):
         all_X = np.concatenate(self._all_X)
 
         self._gp.set_XY(all_X, all_warped_Y)
+
+
+def _get_validated_pairs_of_points(x: Union[ndarray, List[ndarray]],
+                                   y: Union[ndarray, List[ndarray]]) -> Iterator[Tuple[ndarray, ndarray]]:
+    """Given data `x` and `y`, return an iterator over all pairs of points (x_i, y_i). Additionally, ensure that
+    each x_i, y_i has the right dimensionality to be passed to the underlying GP through `GPy.core.gp.GP.set_XY`."""
+    if type(x) is not type(y):
+        raise ValueError("x and y must both be arrays, or both be lists of arrays. "
+                         "Type of x was {}, type of y was {}."
+                         .format(type(x), type(y)))
+
+    if type(x) is list:
+        if len(x) != len(y):
+            raise ValueError("x and y must be lists of equal length. x had length {}, y had length {}."
+                             .format(len(x), len(y)))
+
+        validated_x_and_y = (_validate_and_transform_for_gpy_update(x_input, y_input)
+                             for x_input, y_input in zip(x, y))
+        validated_x, validated_y = zip(*validated_x_and_y)
+        validated_x, validated_y = \
+            _split_list_of_arrays_to_list_of_points(validated_x), _split_list_of_arrays_to_list_of_points(validated_y)
+    else:
+        validated_x, validated_y = _validate_and_transform_for_gpy_update(x, y)
+        validated_x, validated_y = \
+            _split_array_to_list_of_points(validated_x), _split_array_to_list_of_points(validated_y)
+
+    return zip(validated_x, validated_y)
 
 
 def _validate_and_transform_for_gpy_update(x: ndarray, y: ndarray) -> Tuple[ndarray, ndarray]:
@@ -560,3 +582,41 @@ def _validate_and_transform_for_gpy_update(x: ndarray, y: ndarray) -> Tuple[ndar
                          "of points in y. x contained {} points, y contained {} points.".format(x_points, y_points))
 
     return x, y
+
+
+def _split_list_of_arrays_to_list_of_points(arrays: Iterable[ndarray]) -> Iterator[ndarray]:
+    """Given an iterable of arrays, where each array may represent multiple points, return an iterator of arrays
+    where each array represents a single point."""
+    split_arrays = (_split_array_to_list_of_points(array) for array in arrays)
+
+    return chain(*split_arrays)
+
+
+def _split_array_to_list_of_points(array: ndarray) -> List[ndarray]:
+    """Given an array possibly representing multiple points, return a list of arrays where each array represents a
+    single point from the input array."""
+    if array.ndim <= 1:
+        return [array]
+
+    return np.split(array, len(array))
+
+
+def _remove_matching_pairs(pairs: List[Tuple[ndarray, ndarray]], *,
+                           pairs_to_remove: Iterator[Tuple[ndarray, ndarray]]) -> None:
+    """Remove any (x, y) pairs from `pairs` which also appear in `pairs_to_remove`. If any pair occurs multiple times in
+    `pairs`, it will be removed as many times as it appears in `pairs_to_remove`."""
+    indices_to_remove = []
+
+    for remove_x, remove_y in pairs_to_remove:
+        for i in range(len(pairs)):
+            # Don't try to remove the same pair twice.
+            if i in indices_to_remove:
+                continue
+
+            x, y = pairs[i]
+            if np.array_equal(x, remove_x) and np.array_equal(y, remove_y):
+                indices_to_remove.append(i)
+                break
+
+    for i in sorted(indices_to_remove, reverse=True):
+        del pairs[i]

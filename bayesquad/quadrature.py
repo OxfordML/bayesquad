@@ -1,6 +1,6 @@
 """Provides a model of the integrand, with the capability to perform Bayesian quadrature."""
 
-from typing import Tuple
+from typing import Tuple, Union, List
 
 import numpy as np
 from GPy.kern import Kern, RBF
@@ -132,11 +132,25 @@ class IntegrandModel:
         """
         self.warped_gp.update(x, y)
 
-    def fantasise(self, x, y):
-        self.warped_gp.fantasise(x, y)
+    def remove(self, x: Union[ndarray, List[ndarray]], y: Union[ndarray, List[ndarray]]) -> None:
+        """Remove data from the model.
 
-    def remove_fantasies(self):
-        self.warped_gp.remove_fantasies()
+        Parameters
+        ----------
+        x
+            A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions), or a list of such
+            arrays.
+        y
+            A 1D array of shape (num_points), or a list of such arrays. If `x` is 1D, this may also be a 0D array or
+            float. Must be of the same type as `x`.
+
+        Raises
+        ------
+        ValueError
+            If the number of points in `x` does not equal the number of points in `y`.
+            If `x` is an array and `y` is a list, or vice versa.
+        """
+        self.warped_gp.remove(x, y)
 
     def integral_mean(self) -> float:
         """Compute the mean of the integral of the function under this model."""

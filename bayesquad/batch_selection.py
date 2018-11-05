@@ -50,6 +50,7 @@ def select_batch(integrand_model: IntegrandModel,
 
 def select_kriging_believer_batch(integrand_model: IntegrandModel, batch_size: int) -> List[ndarray]:
     batch = []
+    fantasised_evaluations = []
 
     num_initial_points = 10 * integrand_model.dimensions
 
@@ -61,15 +62,18 @@ def select_kriging_believer_batch(integrand_model: IntegrandModel, batch_size: i
         mean_y, _ = integrand_model.posterior_mean_and_variance(batch_point)
 
         batch.append(batch_point)
-        integrand_model.fantasise(batch_point, mean_y)
+        fantasised_evaluations.append(mean_y)
 
-    integrand_model.remove_fantasies()
+        integrand_model.update(batch_point, mean_y)
+
+    integrand_model.remove(batch, fantasised_evaluations)
 
     return batch
 
 
 def select_kriging_optimist_batch(integrand_model: IntegrandModel, batch_size: int) -> List[ndarray]:
     batch = []
+    fantasised_evaluations = []
 
     num_initial_points = 10 * integrand_model.dimensions
 
@@ -82,9 +86,11 @@ def select_kriging_optimist_batch(integrand_model: IntegrandModel, batch_size: i
         optimistic_y = mean_y + np.sqrt(var_y)
 
         batch.append(batch_point)
-        integrand_model.fantasise(batch_point, optimistic_y)
+        fantasised_evaluations.append(optimistic_y)
 
-    integrand_model.remove_fantasies()
+        integrand_model.update(batch_point, optimistic_y)
+
+    integrand_model.remove(batch, fantasised_evaluations)
 
     return batch
 
