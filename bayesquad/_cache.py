@@ -14,6 +14,12 @@ def last_value_cache(func):
 
     The cache is not shared between different instances of the same class.
 
+    Warnings
+    --------
+    Instances of a class with at least one method using this decorator **must** have :func:`~clear_last_value_caches`
+    called on them when they are destroyed (e.g. in the class's `__del__` method). If this is not done, a new instance
+    with the same id may incorrectly share the destroyed instance's cache.
+
     Examples
     --------
     >>> import numpy as np
@@ -21,6 +27,9 @@ def last_value_cache(func):
     >>> class Foo:
     ...     def __init__(self):
     ...         self._count_invocations = 0
+    ...
+    ...     def __del__(self):
+    ...         clear_last_value_caches(self)
     ...
     ...     @last_value_cache
     ...     def do_something_expensive(self, array):
@@ -35,10 +44,7 @@ def last_value_cache(func):
     >>> a = np.array(1)
     >>> b = np.array(1)
 
-    `a` and `b` are equal but distinct:
-
-    >>> a == b
-    True
+    `a` and `b` are distinct:
 
     >>> a is b
     False
@@ -105,4 +111,4 @@ def clear_last_value_caches(obj):
             keys_to_delete.append(key)
 
     for key in keys_to_delete:
-        del(_cache[key])
+        del _cache[key]
