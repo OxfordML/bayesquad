@@ -355,7 +355,7 @@ class WarpedGP(ABC):
         x
             A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions).
         y
-            A 1D array of shape (num_points). If X is 1D, this may also be a 0D array or float.
+            A 1D array of shape (num_points). If `x` is 1D, this may also be a 0D array or float.
 
         Raises
         ------
