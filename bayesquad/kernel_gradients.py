@@ -51,7 +51,7 @@ def jacobian(kernel: Kern, variable_points: ndarray, fixed_points: ndarray) -> n
         raise NotImplementedError
 
 
-def hessian(kernel: Kern, variable_points: ndarray, fixed_points: ndarray):
+def hessian(kernel: Kern, variable_points: ndarray, fixed_points: ndarray) -> ndarray:
     """Return the hessian of a kernel evaluated at all pairs from two sets of points.
 
     Given a kernel and two sets :math:`X, D` of points (`variable_points` and `fixed_points` respectively), this
@@ -105,7 +105,7 @@ def hessian(kernel: Kern, variable_points: ndarray, fixed_points: ndarray):
         raise NotImplementedError
 
 
-def diagonal_hessian(kernel: Kern, x: ndarray):
+def diagonal_hessian(kernel: Kern, x: ndarray) -> ndarray:
     """Return the hessian of a kernel considered as a function of one variable by constraining both inputs to be equal.
 
     Given a kernel :math:`K` and a set of points :math:`X`, this function will evaluate the hessian of :math:`K(x, x)`

@@ -43,7 +43,7 @@ class GP:
     --------
     :class:`GPy.core.gp.GP`
     """
-    def __init__(self, gpy_gp: GPy.core.gp.GP):
+    def __init__(self, gpy_gp: GPy.core.gp.GP) -> None:
         self._gpy_gp = gpy_gp
         self.dimensions = gpy_gp.input_dim
 
@@ -55,7 +55,7 @@ class GP:
         # return gp._gpy_gp.foo.
         return getattr(self._gpy_gp, item)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._clear_cache()
 
     @last_value_cache
@@ -225,7 +225,7 @@ class GP:
 
         return mean_hessian, variance_hessian
 
-    def update(self, x: ndarray, y: Union[ndarray, float]):
+    def update(self, x: ndarray, y: Union[ndarray, float]) -> None:
         """Add new data to the GP.
 
         Parameters
@@ -247,19 +247,19 @@ class GP:
 
         self.set_XY(X, Y)
 
-    def _kernel_jacobian(self, x):
+    def _kernel_jacobian(self, x) -> ndarray:
         return kernel_gradients.jacobian(self.kern, x, self.X)
 
-    def _kernel_hessian(self, x):
+    def _kernel_hessian(self, x) -> ndarray:
         return kernel_gradients.hessian(self.kern, x, self.X)
 
-    def _diagonal_hessian(self, x):
+    def _diagonal_hessian(self, x) -> ndarray:
         return kernel_gradients.diagonal_hessian(self.kern, x)
 
     # noinspection PyUnusedLocal
     # This is called with a keyword argument "which" by GPy when the underlying GP is updated. We allow this to be
     # called with any set of arguments, but ignore them all.
-    def _clear_cache(self, *args, **kwargs):
+    def _clear_cache(self, *args, **kwargs) -> None:
         clear_last_value_caches(self)
 
 
@@ -269,7 +269,7 @@ class WarpedGP(ABC):
     Models of this type will make use of an underlying Gaussian Process model, and work with its outputs to produce a
     warped model. Instances of this class each have an instance of `GP` for this underlying model."""
 
-    def __init__(self, gp: Union[GP, GPy.core.gp.GP]):
+    def __init__(self, gp: Union[GP, GPy.core.gp.GP]) -> None:
         """Create a Warped GP from a GP.
 
         Parameters
@@ -347,7 +347,7 @@ class WarpedGP(ABC):
         """
 
     @abstractmethod
-    def update(self, x: ndarray, y: ndarray):
+    def update(self, x: ndarray, y: ndarray) -> None:
         """Add new data to the GP.
 
         Parameters
@@ -400,7 +400,7 @@ class WsabiLGP(WarpedGP):
     """
     _ALPHA_FACTOR = 0.8
 
-    def __init__(self, gp: Union[GP, GPy.core.GP]):
+    def __init__(self, gp: Union[GP, GPy.core.GP]) -> None:
         super().__init__(gp)
 
         self._alpha = 0
@@ -482,7 +482,7 @@ class WsabiLGP(WarpedGP):
             f=gp_mean, f_jacobian=gp_mean_jacobian, f_hessian=gp_mean_hessian,
             g=gp_variance, g_jacobian=gp_variance_jacobian, g_hessian=gp_variance_hessian)
 
-    def update(self, x: ndarray, y: ndarray):
+    def update(self, x: ndarray, y: ndarray) -> None:
         """Add new data to the GP. If necessary, this will also update the parameter alpha to a value consistent with
         the new data.
 

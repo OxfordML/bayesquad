@@ -115,7 +115,7 @@ class IntegrandModel:
             f=prior, f_jacobian=prior_jacobian, f_hessian=prior_hessian,
             g=gp_variance, g_jacobian=gp_variance_jacobian, g_hessian=gp_variance_hessian)
 
-    def update(self, x: ndarray, y: ndarray):
+    def update(self, x: ndarray, y: ndarray) -> None:
         """Add new data to the model.
 
         Parameters
