@@ -78,7 +78,10 @@ def last_value_cache(func):
     >>> bar.count_expensive_operations()
     1
 
-    >>> self = Foo()  # This is a hack to stop PyCharm wrongly warning about unresolved references in this doctest.
+    The following is a hack to stop PyCharm wrongly warning about unresolved references in this doctest.
+    See https://youtrack.jetbrains.com/issue/PY-31517
+
+    >>> self = Foo()
     """
     @wraps(func)
     def transformed_function(self, x):
