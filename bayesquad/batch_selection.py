@@ -140,8 +140,7 @@ def select_local_penalisation_batch(integrand_model: IntegrandModel, batch_size:
             local_initial_points = _get_local_initial_points(batch_point, num_local_initial_points)
 
             _, max_gradient_squared = multi_start_maximise_log(_variance_gradient_squared_and_jacobian(integrand_model),
-                                                               local_initial_points,
-                                                               gtol=1e-1)
+                                                               local_initial_points)
             max_gradient = sqrt(max_gradient_squared)
 
             penaliser_gradients.append(max_gradient / 2)
