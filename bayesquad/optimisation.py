@@ -54,40 +54,13 @@ def multi_start_maximise(objective_function: Callable,
     minimizer_kwargs['options'] = {**minimizer_kwargs['options'], **kwargs}  # This merges the two dicts.
 
     initial_point = np.concatenate(initial_points)
-    num_initial_points = len(initial_points)
+    num_points = len(initial_points)
     num_dims = len(initial_points[0])
 
-    gtol = minimizer_kwargs['options']['gtol']
-
-    optimisation_terminated = np.full(num_initial_points, False)
-    located_optima = np.zeros((num_initial_points, num_dims))
-    located_optimal_values = np.full(num_initial_points, np.nan)
-
     def function_to_minimise(x, *inner_args, **inner_kwargs):
-        nonlocal optimisation_terminated
-
-        x = np.reshape(x, (num_initial_points, num_dims))
+        x = np.reshape(x, (num_points, num_dims))
 
         value, jacobian = objective_function(x, *inner_args, **inner_kwargs)
-
-        jacobian_norms = np.linalg.norm(jacobian, axis=1, ord=np.inf)
-        new_optimum_found = np.logical_and(jacobian_norms < gtol,
-                                           np.logical_not(optimisation_terminated))
-
-        new_optima_indices = _indices_where(new_optimum_found)
-
-        located_optima[new_optima_indices] = x[new_optima_indices]
-        located_optimal_values[new_optima_indices] = value[new_optima_indices]
-
-        optimisation_terminated = np.logical_or(optimisation_terminated,
-                                                (jacobian_norms < gtol))
-        terminated_indices = _indices_where(optimisation_terminated)
-
-        value[terminated_indices] = located_optimal_values[terminated_indices]
-
-        dummy_jacobian = np.zeros(num_dims)
-        jacobian[terminated_indices] = dummy_jacobian
-
         combined_value, combined_jacobian = -value.sum(), -jacobian.ravel()
 
         if not np.isfinite(combined_value) or not np.all(np.isfinite(combined_jacobian)):
@@ -96,59 +69,13 @@ def multi_start_maximise(objective_function: Callable,
         return combined_value, combined_jacobian
 
     maximum = scipy.optimize.minimize(function_to_minimise, initial_point, **minimizer_kwargs)
-    maxima = maximum.x.reshape(num_initial_points, num_dims)
+    maxima = maximum.x.reshape(num_points, num_dims)
 
-    failed_indices = _indices_where(np.isnan(located_optimal_values))
-    located_optima[failed_indices] = maxima[failed_indices]
-
-    values, _ = objective_function(located_optima)
+    values, _ = objective_function(maxima)
     max_index = np.argmax(values)
 
     optimal_x = maxima[max_index, :]
     optimal_y = values[max_index]
-
-    return optimal_x, optimal_y
-
-
-def multi_start_maximise_slow(objective_function: Callable,
-                         initial_points: List[ndarray], **kwargs) -> Tuple[ndarray, float]:
-    """Run multi-start maximisation of the given objective function.
-
-    This function performs the multi-start maximisation naively by running a Python loop over the initial points.
-
-    Parameters
-    ----------
-    objective_function
-        Function to be maximised. Must return both the function value and the jacobian. Must also accept a 2D array of
-        points, returning a 1D array and a 2D array for the function values and jacobians respectively.
-    initial_points
-        A list of arrays, each of shape (num_dimensions).
-    **kwargs
-        Keyword arguments will be included in the 'options' dict passed to the underlying scipy optimiser.
-
-    Returns
-    -------
-    ndarray
-        The location of the found maximum.
-    float
-        The value of the objective function at the found maximum.
-    """
-    minimizer_kwargs = DEFAULT_MINIMIZER_KWARGS.copy()
-    minimizer_kwargs['options'] = {**minimizer_kwargs['options'], **kwargs}  # This merges the two dicts.
-
-    def function_to_minimise(x, *inner_args, **inner_kwargs):
-        value, jacobian = objective_function(x, *inner_args, **inner_kwargs)
-
-        return -value, -jacobian
-
-    all_maxima = [scipy.optimize.minimize(function_to_minimise, initial_point, **minimizer_kwargs)
-                  for initial_point in initial_points]
-    maxima_x, maxima_y = zip(*[(opt.x, -opt.fun) for opt in all_maxima])
-
-    max_index = np.argmax(maxima_y)
-
-    optimal_x = maxima_x[max_index]
-    optimal_y = maxima_y[max_index]
 
     return optimal_x, optimal_y
 
