@@ -42,6 +42,21 @@ class Prior(ABC):
         """
 
     @abstractmethod
+    def logpdf(self, x: ndarray) -> ndarray:
+        """Evaluate the prior's log pdf at the given set of points.
+
+        Parameters
+        ----------
+        x
+            An array of shape (num_points, num_dimensions).
+
+        Returns
+        -------
+        ndarray
+            A 1D array of shape (num_points).
+        """
+
+    @abstractmethod
     def __call__(self, x: ndarray) -> ndarray:
         """Evaluate the prior's pdf at the given set of points.
 
@@ -103,6 +118,11 @@ class Gaussian(Prior):
         hessian = self(x)[:, newaxis, newaxis] * (outer_products - self.precision[newaxis, :, :])
 
         return jacobian, hessian
+
+    def logpdf(self, x: ndarray) -> ndarray:
+        """See :func:`~Prior.logpdf`"""
+        validate_dimensions(x, self._dimensions)
+        return np.atleast_1d(self._multivariate_normal.logpdf(x))
 
     def __call__(self, x: ndarray) -> ndarray:
         """See :func:`~Prior.__call__`"""
