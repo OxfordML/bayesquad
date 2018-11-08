@@ -1,4 +1,4 @@
-"""A home for complicated mathematical operations which are used multiple times in this package."""
+"""A home for mathematical operations which are used multiple times in this package."""
 
 from numpy import ndarray, newaxis
 

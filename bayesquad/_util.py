@@ -7,8 +7,10 @@ from numpy import ndarray
 def validate_dimensions(x: ndarray, expected_dimensionality: int):
     """Checks that `x` represents data of dimensionality `expected_dimensions`.
 
-    If `x` is a 2D array with second dimension of size `expected_dimensions`, this method will execute without
-    error. Otherwise, a `ValueError` will be thrown.
+    Raises
+    ------
+    ValueError
+        If `x` is not a 2D array, or if the second dimension of `x` does not have size `expected_dimensions`.
     """
     array_dimensions = np.ndim(x)
 
