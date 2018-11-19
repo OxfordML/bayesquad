@@ -103,7 +103,7 @@ def multi_start_maximise_log(objective_function: Callable,
         # dimensionality for numpy broadcasting to work here.
         log_jacobian = jacobian / ma.expand_dims(masked_value, -1)
 
-        log_value = ma.filled(log_value, -1e100)
+        log_value = ma.filled(log_value, -1e3)
         log_jacobian = ma.filled(log_jacobian, np.random.randn())
 
         return log_value, log_jacobian
