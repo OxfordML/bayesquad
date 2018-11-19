@@ -207,32 +207,6 @@ def _variance_gradient_squared_and_jacobian(integrand_model: IntegrandModel):
     return f
 
 
-def _get_penalised_acquisition_function(acquisition_function, penaliser_centres, penaliser_gradients):
-    """Create a function which will return the minimum of the given acquisition function and the given penalisers at
-    any point, or set of points.
-
-    The penalisers take the form of a cone around a central point.
-    """
-    penalisers = [_cone(centre, gradient) for centre, gradient in zip(penaliser_centres, penaliser_gradients)]
-
-    def penalised_acquisition_function(x):
-        function_evaluations = [acquisition_function(x)] + [f(x) for f in penalisers]
-        function_values, function_jacobians = [np.array(ret) for ret in zip(*function_evaluations)]
-
-        # This is necessary to ensure that function_values has the same dimensions as function_jacobians, so that we can
-        # index into both arrays in a consistent manner.
-        function_values = np.expand_dims(function_values, -1)
-
-        min_indices = np.argmin(function_values, axis=0)
-
-        values = np.choose(min_indices, function_values)
-        jacobians = np.choose(min_indices, function_jacobians)
-
-        return values.squeeze(), jacobians.squeeze()
-
-    return penalised_acquisition_function
-
-
 def _get_soft_penalised_log_acquisition_function(acquisition_function, penaliser_centres, penaliser_gradients):
     """Create a function which will return the log of a soft minimum of the given acquisition function and the given
     penalisers at any point, or set of points.
