@@ -5,7 +5,6 @@ from itertools import chain
 import GPy.core.gp
 import numpy as np
 from abc import ABC, abstractmethod
-from multimethod import multimethod
 from numpy import ndarray
 from typing import Tuple, Union, List, Iterable, Iterator
 
