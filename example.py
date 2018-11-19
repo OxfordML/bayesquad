@@ -43,7 +43,7 @@ def true_integrand(x):
 LOWER_LIMIT = -4
 UPPER_LIMIT = 4
 PLOTTING_RESOLUTION = 200
-COLOUR_MAP = "summer"
+COLOUR_MAP = 'summer'
 
 
 def get_plotting_domain(lower_limit, upper_limit, resolution):
@@ -69,7 +69,7 @@ def plot_data(data, subplot, title=""):
         axis = figure.add_subplot(subplot)
         image = axis.imshow(data, cmap=plt.get_cmap(COLOUR_MAP), vmin=data.min(), vmax=data.max(),
                             extent=[LOWER_LIMIT, UPPER_LIMIT, LOWER_LIMIT, UPPER_LIMIT],
-                            interpolation="nearest", origin="lower")
+                            interpolation='nearest', origin='lower')
         images[subplot] = image
 
         axis.set_title(title)
