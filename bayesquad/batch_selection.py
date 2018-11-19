@@ -8,7 +8,7 @@ import numpy.ma as ma
 from numpy import ndarray
 
 from .optimisation import multi_start_maximise_log, multi_start_maximise
-from .plotting import returns_plottable
+from .plotting import plottable
 from .quadrature import IntegrandModel
 
 LOCAL_PENALISATION = "Local Penalisation"
@@ -154,8 +154,9 @@ def _get_local_initial_points(central_point, num_points):
     return [central_point + perturbation for perturbation in perturbations]
 
 
-@returns_plottable("Model variance")
 def _model_variance(integrand_model: IntegrandModel):
+
+    @plottable("Model variance", default_plotting_parameters={'calculate_jacobian': False})
     def f(x, *, calculate_jacobian=True):
         """Evaluate the variance, and the jacobian of the variance, for the given `IntegrandModel` at a point, or a set
         of points.
@@ -181,20 +182,25 @@ def _model_variance(integrand_model: IntegrandModel):
     return f
 
 
-@returns_plottable("Grad squared")
 def _variance_gradient_squared_and_jacobian(integrand_model: IntegrandModel):
-    def f(x):
+
+    @plottable("Gradient squared", default_plotting_parameters={'calculate_jacobian': False})
+    def f(x, *, calculate_jacobian=True):
         variance_jacobian = integrand_model.posterior_variance_jacobian(x)
-        variance_hessian = integrand_model.posterior_variance_hessian(x)
 
         # Inner product of the jacobian with itself, for each point.
         gradient_squared = np.einsum('...i,...i->...', variance_jacobian, variance_jacobian, optimize=True)
 
-        # Matrix product of hessian and jacobian, for each point.
-        gradient_squared_jacobian = 2 * np.einsum('...ij,...j->...i',
-                                                  variance_hessian,
-                                                  variance_jacobian,
-                                                  optimize=True)
+        if calculate_jacobian:
+            variance_hessian = integrand_model.posterior_variance_hessian(x)
+
+            # Matrix product of hessian and jacobian, for each point.
+            gradient_squared_jacobian = 2 * np.einsum('...ij,...j->...i',
+                                                      variance_hessian,
+                                                      variance_jacobian,
+                                                      optimize=True)
+        else:
+            gradient_squared_jacobian = None
 
         return gradient_squared, gradient_squared_jacobian
 
@@ -227,9 +233,7 @@ def _get_penalised_acquisition_function(acquisition_function, penaliser_centres,
     return penalised_acquisition_function
 
 
-@returns_plottable("Soft penalised log acquisition function")
-def _get_soft_penalised_log_acquisition_function(acquisition_function, penaliser_centres,
-                                                 penaliser_gradients):
+def _get_soft_penalised_log_acquisition_function(acquisition_function, penaliser_centres, penaliser_gradients):
     """Create a function which will return the log of a soft minimum of the given acquisition function and the given
     penalisers at any point, or set of points.
 
@@ -242,6 +246,7 @@ def _get_soft_penalised_log_acquisition_function(acquisition_function, penaliser
     penalisers = [_cone(centre, gradient) for centre, gradient in zip(penaliser_centres, penaliser_gradients)]
     p = 6
 
+    @plottable("Soft penalised log acquisition function", default_plotting_parameters={'calculate_jacobian': False})
     def penalised_acquisition_function(x, *, calculate_jacobian=True):
         function_evaluations = \
             [acquisition_function(x, calculate_jacobian=calculate_jacobian)] + [f(x) for f in penalisers]

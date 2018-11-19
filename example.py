@@ -88,7 +88,7 @@ def plot_integrand_posterior(integrand_model: IntegrandModel):
 
 
 def plotting_callback(func):
-    z = np.exp(func(PLOTTING_DOMAIN, calculate_jacobian=False)[0])
+    z = np.exp(func(PLOTTING_DOMAIN)[0])
     plot_data(z, 131, "Acquisition Function")
 
 
