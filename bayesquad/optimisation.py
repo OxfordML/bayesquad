@@ -29,9 +29,9 @@ def multi_start_maximise(objective_function: Callable,
     simply concatenate all the points where the function is to be evaluated into a single high-dimensional vector, give
     the function value as the sum of all the individual function values, and give the jacobian as the concatenation of
     all the individual jacobians. In this way we can essentially perform many optimisations in parallel. Note that
-    (among other issues) there is an issue here with the stopping condition: we can only consider all optimisations
-    together, so even if most have come very close to an optimum, the process will continue as long as one is far away.
-    However, this does seem to perform well in practice.
+    there is an issue here with the stopping condition: we can only consider all optimisations together, so even if most
+    have come very close to an optimum, the process will continue as long as one is far away. However, this does seem to
+    perform well in practice.
 
     Parameters
     ----------
