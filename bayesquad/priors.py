@@ -32,13 +32,13 @@ class Prior(ABC):
         """
 
     @abstractmethod
-    def sample(self) -> ndarray:
-        """Sample a point from the prior.
+    def sample(self, num_points: int = 1) -> ndarray:
+        """Sample `num_points` points independently from the prior.
 
         Returns
         -------
         ndarray
-            A sample from the prior, as a 1D array of shape (num_dimensions).
+            `num_points` samples from the prior, as a 2D array of shape (num_dimensions, num_points).
         """
 
     @abstractmethod
@@ -99,9 +99,9 @@ class Gaussian(Prior):
         self._dimensions = np.size(mean)
         self._multivariate_normal = scipy.stats.multivariate_normal(mean=mean, cov=covariance)
 
-    def sample(self) -> ndarray:
+    def sample(self, num_points: int = 1) -> ndarray:
         """See :func:`~Prior.sample`"""
-        return np.atleast_1d(self._multivariate_normal.rvs())
+        return np.atleast_2d(self._multivariate_normal.rvs(size=num_points))
 
     def gradient(self, x: ndarray) -> Tuple[ndarray, ndarray]:
         """See :func:`~Prior.gradient`"""
