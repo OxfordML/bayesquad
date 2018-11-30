@@ -7,6 +7,7 @@ import numpy as np
 import numpy.ma as ma
 from numpy import ndarray
 
+from .acquisition_functions import model_variance, model_variance_norm_of_gradient_squared
 from .optimisation import multi_start_maximise
 from .transformations import log_of_function
 from .plotting import plottable
@@ -56,7 +57,7 @@ def select_kriging_believer_batch(integrand_model: IntegrandModel, batch_size: i
     num_initial_points = 10 * integrand_model.dimensions
 
     while len(batch) < batch_size:
-        acquisition_function = _model_variance(integrand_model)
+        acquisition_function = model_variance(integrand_model)
         initial_points = integrand_model.prior.sample(num_initial_points)
 
         log_acquisition_function = log_of_function(acquisition_function)
@@ -80,7 +81,7 @@ def select_kriging_optimist_batch(integrand_model: IntegrandModel, batch_size: i
     num_initial_points = 10 * integrand_model.dimensions
 
     while len(batch) < batch_size:
-        acquisition_function = _model_variance(integrand_model)
+        acquisition_function = model_variance(integrand_model)
         initial_points = integrand_model.prior.sample(num_initial_points)
 
         log_acquisition_function = log_of_function(acquisition_function)
@@ -126,7 +127,7 @@ def select_local_penalisation_batch(integrand_model: IntegrandModel, batch_size:
     batch = []
     penaliser_gradients = []
 
-    acquisition_function = _model_variance(integrand_model)
+    acquisition_function = model_variance(integrand_model)
     num_initial_points = 10 * integrand_model.dimensions
 
     while len(batch) < batch_size:
@@ -143,7 +144,7 @@ def select_local_penalisation_batch(integrand_model: IntegrandModel, batch_size:
             local_initial_points = _get_local_initial_points(batch_point, num_local_initial_points)
 
             log_variance_gradient_squared_and_jacobian = \
-                log_of_function(_variance_gradient_squared_and_jacobian(integrand_model))
+                log_of_function(model_variance_norm_of_gradient_squared(integrand_model))
             _, max_gradient_squared = multi_start_maximise(log_variance_gradient_squared_and_jacobian,
                                                            local_initial_points)
             max_gradient = sqrt(max_gradient_squared)
@@ -157,59 +158,6 @@ def _get_local_initial_points(central_point, num_points):
     """Get a set of points close to a given point."""
     perturbations = 0.1 * np.random.randn(num_points, *central_point.shape)
     return central_point + perturbations
-
-
-def _model_variance(integrand_model: IntegrandModel):
-
-    @plottable("Model variance", default_plotting_parameters={'calculate_jacobian': False})
-    def f(x, *, calculate_jacobian=True):
-        """Evaluate the variance, and the jacobian of the variance, for the given `IntegrandModel` at a point, or a set
-        of points.
-
-        Given an array of shape (num_points, num_dimensions), returns an array of shape (num_points) containing the
-        function values and an array of shape (num_points, num_dimensions) containing the function jacobians.
-
-        Given an array of shape (num_dimensions), returns a 0D array containing the function value and an array of shape
-        (num_dimensions) containing the function jacobian.
-
-        If the Jacobian is not required (e.g. for plotting), the relevant calculations can be disabled by setting
-        `calculate_jacobian=False`.
-        """
-        _, variance = integrand_model.posterior_mean_and_variance(x)
-
-        if calculate_jacobian:
-            variance_jacobian = integrand_model.posterior_variance_jacobian(x)
-        else:
-            variance_jacobian = None
-
-        return variance, variance_jacobian
-
-    return f
-
-
-def _variance_gradient_squared_and_jacobian(integrand_model: IntegrandModel):
-
-    @plottable("Gradient squared", default_plotting_parameters={'calculate_jacobian': False})
-    def f(x, *, calculate_jacobian=True):
-        variance_jacobian = integrand_model.posterior_variance_jacobian(x)
-
-        # Inner product of the jacobian with itself, for each point.
-        gradient_squared = np.einsum('...i,...i->...', variance_jacobian, variance_jacobian, optimize=True)
-
-        if calculate_jacobian:
-            variance_hessian = integrand_model.posterior_variance_hessian(x)
-
-            # Matrix product of hessian and jacobian, for each point.
-            gradient_squared_jacobian = 2 * np.einsum('...ij,...j->...i',
-                                                      variance_hessian,
-                                                      variance_jacobian,
-                                                      optimize=True)
-        else:
-            gradient_squared_jacobian = None
-
-        return gradient_squared, gradient_squared_jacobian
-
-    return f
 
 
 def _get_soft_penalised_log_acquisition_function(acquisition_function, penaliser_centres, penaliser_gradients):
