@@ -1,6 +1,5 @@
 """Utility functions wrapping a scipy optimizer."""
 
-from functools import wraps
 from typing import Tuple, Callable
 
 import numpy as np
@@ -76,39 +75,6 @@ def multi_start_maximise(objective_function: Callable,
     optimal_y = values[max_index]
 
     return optimal_x, optimal_y
-
-
-def multi_start_maximise_log(objective_function: Callable,
-                             initial_points: ndarray, **kwargs) -> Tuple[ndarray, float]:
-    """Maximise the given objective function in log space. This may be significantly easier for functions with a high
-    dynamic range.
-
-    See Also
-    --------
-    :func:`~multi_start_maximise` : `multi_start_maximise_log` is a thin wrapper around this function. See this function
-    for further details on parameters and return values.
-    """
-    @wraps(objective_function)
-    def log_objective_function(x, *inner_args, **inner_kwargs):
-        import numpy.ma as ma
-
-        value, jacobian = objective_function(x, *inner_args, **inner_kwargs)
-        masked_value = ma.masked_equal(value, 0)
-
-        log_value = ma.log(masked_value)
-
-        # We need expand_dims here because value is lower-dimensional than jacobian, but they must have the same
-        # dimensionality for numpy broadcasting to work here.
-        log_jacobian = jacobian / ma.expand_dims(masked_value, -1)
-
-        log_value = ma.filled(log_value, -1e3)
-        log_jacobian = ma.filled(log_jacobian, np.random.randn())
-
-        return log_value, log_jacobian
-
-    optimal_x, optimal_value = multi_start_maximise(log_objective_function, initial_points, **kwargs)
-
-    return optimal_x, np.exp(optimal_value)
 
 
 def _indices_where(array: ndarray) -> Tuple:

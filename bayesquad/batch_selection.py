@@ -7,7 +7,8 @@ import numpy as np
 import numpy.ma as ma
 from numpy import ndarray
 
-from .optimisation import multi_start_maximise_log, multi_start_maximise
+from .optimisation import multi_start_maximise
+from .transformations import log_of_function
 from .plotting import plottable
 from .quadrature import IntegrandModel
 
@@ -58,7 +59,8 @@ def select_kriging_believer_batch(integrand_model: IntegrandModel, batch_size: i
         acquisition_function = _model_variance(integrand_model)
         initial_points = integrand_model.prior.sample(num_initial_points)
 
-        batch_point, value = multi_start_maximise_log(acquisition_function, initial_points)
+        log_acquisition_function = log_of_function(acquisition_function)
+        batch_point, _ = multi_start_maximise(log_acquisition_function, initial_points)
         mean_y, _ = integrand_model.posterior_mean_and_variance(batch_point)
 
         batch.append(batch_point)
@@ -81,7 +83,8 @@ def select_kriging_optimist_batch(integrand_model: IntegrandModel, batch_size: i
         acquisition_function = _model_variance(integrand_model)
         initial_points = integrand_model.prior.sample(num_initial_points)
 
-        batch_point, value = multi_start_maximise_log(acquisition_function, initial_points)
+        log_acquisition_function = log_of_function(acquisition_function)
+        batch_point, _ = multi_start_maximise(log_acquisition_function, initial_points)
         mean_y, var_y = integrand_model.posterior_mean_and_variance(batch_point)
         optimistic_y = mean_y + np.sqrt(var_y)
 
@@ -139,8 +142,10 @@ def select_local_penalisation_batch(integrand_model: IntegrandModel, batch_size:
             num_local_initial_points = integrand_model.dimensions * 10
             local_initial_points = _get_local_initial_points(batch_point, num_local_initial_points)
 
-            _, max_gradient_squared = multi_start_maximise_log(_variance_gradient_squared_and_jacobian(integrand_model),
-                                                               local_initial_points)
+            log_variance_gradient_squared_and_jacobian = \
+                log_of_function(_variance_gradient_squared_and_jacobian(integrand_model))
+            _, max_gradient_squared = multi_start_maximise(log_variance_gradient_squared_and_jacobian,
+                                                           local_initial_points)
             max_gradient = sqrt(max_gradient_squared)
 
             penaliser_gradients.append(max_gradient / 2)
