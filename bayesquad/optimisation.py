@@ -1,7 +1,7 @@
 """Utility functions wrapping a scipy optimizer."""
 
 from functools import wraps
-from typing import Tuple, Callable, List
+from typing import Tuple, Callable
 
 import numpy as np
 import scipy.optimize
@@ -15,7 +15,7 @@ DEFAULT_MINIMIZER_KWARGS = {'method': 'BFGS',
 
 
 def multi_start_maximise(objective_function: Callable,
-                         initial_points: List[ndarray], **kwargs) -> Tuple[ndarray, float]:
+                         initial_points: ndarray, **kwargs) -> Tuple[ndarray, float]:
     """Run multi-start maximisation of the given objective function.
 
     Warnings
@@ -53,9 +53,7 @@ def multi_start_maximise(objective_function: Callable,
     minimizer_kwargs = DEFAULT_MINIMIZER_KWARGS.copy()
     minimizer_kwargs['options'] = {**minimizer_kwargs['options'], **kwargs}  # This merges the two dicts.
 
-    initial_point = np.concatenate(initial_points)
-    num_points = len(initial_points)
-    num_dims = len(initial_points[0])
+    num_points, num_dims = np.shape(initial_points)
 
     def function_to_minimise(x, *inner_args, **inner_kwargs):
         x = np.reshape(x, (num_points, num_dims))
@@ -68,7 +66,7 @@ def multi_start_maximise(objective_function: Callable,
 
         return combined_value, combined_jacobian
 
-    maximum = scipy.optimize.minimize(function_to_minimise, initial_point, **minimizer_kwargs)
+    maximum = scipy.optimize.minimize(function_to_minimise, initial_points, **minimizer_kwargs)
     maxima = maximum.x.reshape(num_points, num_dims)
 
     values, _ = objective_function(maxima)
@@ -81,7 +79,7 @@ def multi_start_maximise(objective_function: Callable,
 
 
 def multi_start_maximise_log(objective_function: Callable,
-                             initial_points: List[ndarray], **kwargs) -> Tuple[ndarray, float]:
+                             initial_points: ndarray, **kwargs) -> Tuple[ndarray, float]:
     """Maximise the given objective function in log space. This may be significantly easier for functions with a high
     dynamic range.
 

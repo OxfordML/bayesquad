@@ -56,7 +56,7 @@ def select_kriging_believer_batch(integrand_model: IntegrandModel, batch_size: i
 
     while len(batch) < batch_size:
         acquisition_function = _model_variance(integrand_model)
-        initial_points = [integrand_model.prior.sample() for _ in range(num_initial_points)]
+        initial_points = integrand_model.prior.sample(num_initial_points)
 
         batch_point, value = multi_start_maximise_log(acquisition_function, initial_points)
         mean_y, _ = integrand_model.posterior_mean_and_variance(batch_point)
@@ -79,7 +79,7 @@ def select_kriging_optimist_batch(integrand_model: IntegrandModel, batch_size: i
 
     while len(batch) < batch_size:
         acquisition_function = _model_variance(integrand_model)
-        initial_points = [integrand_model.prior.sample() for _ in range(num_initial_points)]
+        initial_points = integrand_model.prior.sample(num_initial_points)
 
         batch_point, value = multi_start_maximise_log(acquisition_function, initial_points)
         mean_y, var_y = integrand_model.posterior_mean_and_variance(batch_point)
@@ -130,7 +130,7 @@ def select_local_penalisation_batch(integrand_model: IntegrandModel, batch_size:
         softmin_penalised_log_acquisition_function = \
             _get_soft_penalised_log_acquisition_function(acquisition_function, batch, penaliser_gradients)
 
-        initial_points = [integrand_model.prior.sample() for _ in range(num_initial_points)]
+        initial_points = integrand_model.prior.sample(num_initial_points)
         batch_point, value = multi_start_maximise(softmin_penalised_log_acquisition_function,
                                                   initial_points)
         batch.append(batch_point)
@@ -150,8 +150,8 @@ def select_local_penalisation_batch(integrand_model: IntegrandModel, batch_size:
 
 def _get_local_initial_points(central_point, num_points):
     """Get a set of points close to a given point."""
-    perturbations = [0.1 * np.random.randn(*central_point.shape) for _ in range(num_points)]
-    return [central_point + perturbation for perturbation in perturbations]
+    perturbations = 0.1 * np.random.randn(num_points, *central_point.shape)
+    return central_point + perturbations
 
 
 def _model_variance(integrand_model: IntegrandModel):
