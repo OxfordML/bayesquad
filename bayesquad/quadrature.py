@@ -52,12 +52,12 @@ class IntegrandModel:
 
     @flexible_array_dimensions
     def posterior_variance_jacobian(self, x: ndarray) -> ndarray:
-        """Get the jacobian of the posterior variance of the product of warped GP and prior at a point or set of points.
+        """Get the Jacobian of the posterior variance of the product of warped GP and prior at a point or set of points.
 
         Parameters
         ----------
         x
-            The point(s) at which to evaluate the jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D
+            The point(s) at which to evaluate the Jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D
             array of shape (num_dimensions).
 
         Returns
@@ -65,7 +65,7 @@ class IntegrandModel:
         jacobian : ndarray
             A 2D array of shape (num_points, num_dimensions) if the input was 2D, or a 1D array of shape
             (num_dimensions) if the input was 1D. The :math:`(i, j)`-th element is the :math:`j`-th component of the
-            jacobian of the posterior variance at the :math:`i`-th point of `x`.
+            Jacobian of the posterior variance at the :math:`i`-th point of `x`.
 
         Notes
         -----
@@ -84,12 +84,12 @@ class IntegrandModel:
 
     @flexible_array_dimensions
     def posterior_variance_hessian(self, x: ndarray) -> ndarray:
-        """Get the hessian of the posterior variance of the product of warped GP and prior at a point, or set of points.
+        """Get the Hessian of the posterior variance of the product of warped GP and prior at a point, or set of points.
 
         Parameters
         ----------
         x
-            The point(s) at which to evaluate the hessian. A 2D array of shape (num_points, num_dimensions), or a 1D
+            The point(s) at which to evaluate the Hessian. A 2D array of shape (num_points, num_dimensions), or a 1D
             array of shape (num_dimensions).
 
         Returns

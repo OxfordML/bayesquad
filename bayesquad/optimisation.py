@@ -27,8 +27,8 @@ def multi_start_maximise(objective_function: Callable,
     vectorised functions to view a multi-start optimisation as a single pass of a higher-dimensional optimisation,
     rather than several passes of a low-dimensional optimisation (which would require an expensive python loop). We
     simply concatenate all the points where the function is to be evaluated into a single high-dimensional vector, give
-    the function value as the sum of all the individual function values, and give the jacobian as the concatenation of
-    all the individual jacobians. In this way we can essentially perform many optimisations in parallel. Note that
+    the function value as the sum of all the individual function values, and give the Jacobian as the concatenation of
+    all the individual Jacobians. In this way we can essentially perform many optimisations in parallel. Note that
     there is an issue here with the stopping condition: we can only consider all optimisations together, so even if most
     have come very close to an optimum, the process will continue as long as one is far away. However, this does seem to
     perform well in practice.
@@ -36,8 +36,8 @@ def multi_start_maximise(objective_function: Callable,
     Parameters
     ----------
     objective_function
-        Function to be maximised. Must return both the function value and the jacobian. Must also accept a 2D array of
-        points, returning a 1D array and a 2D array for the function values and jacobians respectively.
+        Function to be maximised. Must return both the function value and the Jacobian. Must also accept a 2D array of
+        points, returning a 1D array and a 2D array for the function values and Jacobians respectively.
     initial_points
         A list of arrays, each of shape (num_dimensions).
     **kwargs

@@ -9,10 +9,10 @@ from numpy import ndarray, newaxis
 
 
 def jacobian(kernel: Kern, variable_points: ndarray, fixed_points: ndarray) -> ndarray:
-    """Return the jacobian of a kernel evaluated at all pairs from two sets of points.
+    """Return the Jacobian of a kernel evaluated at all pairs from two sets of points.
 
     Given a kernel and two sets :math:`X, D` of points (`variable_points` and `fixed_points` respectively), this
-    function will evaluate the jacobian of the kernel at each pair of points :math:`(x, d)` with :math:`x \in X` and
+    function will evaluate the Jacobian of the kernel at each pair of points :math:`(x, d)` with :math:`x \in X` and
     :math:`d \in D`. The derivative is taken with respect to the first argument, i.e. :math:`d` is regarded as a
     fixed quantity. Typically, :math:`D` will be the set of :math:`x` values in the data set of a Gaussian Process, and
     :math:`X` will be the set of :math:`x` values at which we wish to find the gradient of the posterior GP.
@@ -31,7 +31,7 @@ def jacobian(kernel: Kern, variable_points: ndarray, fixed_points: ndarray) -> n
     -------
     ndarray
         A 3D array of shape (num_variable_points, num_fixed_points, num_dimensions), whose (i, j, k)-th element is the
-        k-th component of the jacobian of the kernel evaluated at the i-th point of :math:`X` and the j-th point of
+        k-th component of the Jacobian of the kernel evaluated at the i-th point of :math:`X` and the j-th point of
         :math:`D`.
 
     Raises
@@ -52,10 +52,10 @@ def jacobian(kernel: Kern, variable_points: ndarray, fixed_points: ndarray) -> n
 
 
 def hessian(kernel: Kern, variable_points: ndarray, fixed_points: ndarray) -> ndarray:
-    """Return the hessian of a kernel evaluated at all pairs from two sets of points.
+    """Return the Hessian of a kernel evaluated at all pairs from two sets of points.
 
     Given a kernel and two sets :math:`X, D` of points (`variable_points` and `fixed_points` respectively), this
-    function will evaluate the hessian of the kernel at each pair of points :math:`(x, d)` with :math:`x \in X` and
+    function will evaluate the Hessian of the kernel at each pair of points :math:`(x, d)` with :math:`x \in X` and
     :math:`d \in D`. The derivatives are taken with respect to the first argument, i.e. :math:`d` is regarded as a
     fixed quantity. Typically, :math:`D` will be the set of :math:`x` values in the data set of a Gaussian Process, and
     :math:`X` will be the set of :math:`x` values at which we wish to find the gradient of the posterior GP.
@@ -106,9 +106,9 @@ def hessian(kernel: Kern, variable_points: ndarray, fixed_points: ndarray) -> nd
 
 
 def diagonal_hessian(kernel: Kern, x: ndarray) -> ndarray:
-    """Return the hessian of a kernel considered as a function of one variable by constraining both inputs to be equal.
+    """Return the Hessian of a kernel considered as a function of one variable by constraining both inputs to be equal.
 
-    Given a kernel :math:`K` and a set of points :math:`X`, this function will evaluate the hessian of :math:`K(x, x)`
+    Given a kernel :math:`K` and a set of points :math:`X`, this function will evaluate the Hessian of :math:`K(x, x)`
     at each point :math:`x` of :math:`X`.
 
     Parameters

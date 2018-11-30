@@ -30,7 +30,7 @@ class GP:
 
     This is a performance optimisation to prevent duplication of work (e.g. a :class:`~WarpedGP` may need to call
     posterior_mean_and_variance to compute its own posterior mean, and then immediately do so again to compute its
-    posterior jacobians). The cache is cleared whenever the underlying GP is modified (this is implemented using the
+    posterior Jacobians). The cache is cleared whenever the underlying GP is modified (this is implemented using the
     observer mechanism provided by GPy). This should mean that a cache hit will only occur if the result of performing
     the computation again would be exactly the same, but if necessary (e.g. if `update_model` has been disabled on the
     underlying GPy `GP`), it is possible to clear the cache manually by calling the method :func:`_clear_cache` on an
@@ -90,22 +90,22 @@ class GP:
     @last_value_cache
     @flexible_array_dimensions
     def posterior_jacobians(self, x: ndarray, *args, **kwargs) -> Tuple[ndarray, ndarray]:
-        """Get the jacobian of the posterior mean and the jacobian of the posterior variance.
+        """Get the Jacobian of the posterior mean and the Jacobian of the posterior variance.
 
         Parameters
         ----------
         x
-            The point(s) at which to evaluate the posterior jacobians. A 2D array of shape (num_points, num_dimensions),
+            The point(s) at which to evaluate the posterior Jacobians. A 2D array of shape (num_points, num_dimensions),
             or a 1D array of shape (num_dimensions).
 
         Returns
         -------
         mean_jacobian : ndarray
             An array of the same shape as the input. The :math:`(i, j)`-th element is the :math:`j`-th component of the
-            jacobian of the posterior mean at the :math:`i`-th point of `x`.
+            Jacobian of the posterior mean at the :math:`i`-th point of `x`.
         variance_jacobian : ndarray
             An array of the same shape as the input. The :math:`(i, j)`-th element is the :math:`j`-th component of the
-            jacobian of the posterior variance at the :math:`i`-th point of `x`.
+            Jacobian of the posterior variance at the :math:`i`-th point of `x`.
 
         See Also
         --------
@@ -120,9 +120,9 @@ class GP:
     @last_value_cache
     @flexible_array_dimensions
     def posterior_hessians(self, x: ndarray) -> Tuple[ndarray, ndarray]:
-        """Get the hessian of the posterior mean and the hessian of the posterior variance.
+        """Get the Hessian of the posterior mean and the Hessian of the posterior variance.
 
-        Given a set of points, return the hessian of the posterior mean and the hessian of the posterior variance at
+        Given a set of points, return the Hessian of the posterior mean and the Hessian of the posterior variance at
         each point.
 
         Parameters
@@ -148,7 +148,7 @@ class GP:
 
         In the following:
 
-            - :math:`X_*` is the set of points at which to evaluate the hessians (i.e. the input to this method). In the
+            - :math:`X_*` is the set of points at which to evaluate the Hessians (i.e. the input to this method). In the
               code, this is `x`.
             - :math:`D = \{ X_D, Y_D \}` is our GP's data (with :math:`X_D` the locations of function evaluations, and
               :math:`Y_D` the values of the function evaluations). In the code, these are `X_D` and `Y_D`
@@ -163,9 +163,9 @@ class GP:
             - :math:`m(X_*)` is the posterior mean at :math:`X_*`, which is a vector of length :math:`n`.
             - :math:`V(X_*)` is the posterior variance at :math:`X_*`, which is a vector of length :math:`n`.
 
-        The hessians we return depend on the jacobian and hessian of :math:`K_*`. Since :math:`K_*` is a matrix, the
-        jacobian is a 3D tensor, and the hessian is a 4D tensor. Writing :math:`J` for the jacobian and :math:`H` for
-        the hessian, we have:
+        The Hessians we return depend on the Jacobian and Hessian of :math:`K_*`. Since :math:`K_*` is a matrix, the
+        Jacobian is a 3D tensor, and the Hessian is a 4D tensor. Writing :math:`J` for the Jacobian and :math:`H` for
+        the Hessian, we have:
 
         .. math::
 
@@ -178,7 +178,7 @@ class GP:
         In the code, :math:`J` is `kernel_jacobian`, and :math:`H` is `kernel_hessian`. These have shape
         (:math:`n, N, d`) and (:math:`n, N, d, d`) respectively.
 
-        The hessian of the mean is reasonably straightforward. We have:
+        The Hessian of the mean is reasonably straightforward. We have:
 
         .. math::
 
@@ -188,7 +188,7 @@ class GP:
                      & = &
             H_{ijkl} (K_D^{-1})_{jm} (Y_D)_m \\\\
 
-        The hessian of the variance is more complicated. It is the difference of a data-independent diagonal part,
+        The Hessian of the variance is more complicated. It is the difference of a data-independent diagonal part,
         :math:`P`, and a data-dependent part, :math:`Q`, as follows:
 
         .. math::
@@ -311,12 +311,12 @@ class WarpedGP(ABC):
 
     @abstractmethod
     def posterior_variance_jacobian(self, x: ndarray) -> ndarray:
-        """Get the jacobian of the posterior variance.
+        """Get the Jacobian of the posterior variance.
 
         Parameters
         ----------
         x
-            The point(s) at which to evaluate the jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D
+            The point(s) at which to evaluate the Jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D
             array of shape (num_dimensions).
 
         Returns
@@ -324,17 +324,17 @@ class WarpedGP(ABC):
         jacobian : ndarray
             A 2D array of shape (num_points, num_dimensions) if the input was 2D, or a 1D array of shape
             (num_dimensions) if the input was 1D. The :math:`(i, j)`-th element is the :math:`j`-th component of the
-            jacobian of the posterior variance at the :math:`i`-th point of `x`.
+            Jacobian of the posterior variance at the :math:`i`-th point of `x`.
         """
 
     @abstractmethod
     def posterior_variance_hessian(self, x: ndarray) -> ndarray:
-        """Get the hessian of the posterior variance.
+        """Get the Hessian of the posterior variance.
 
         Parameters
         ----------
         x
-            The point(s) at which to evaluate the hessian. A 2D array of shape (num_points, num_dimensions), or a 1D
+            The point(s) at which to evaluate the Hessian. A 2D array of shape (num_points, num_dimensions), or a 1D
             array of shape (num_dimensions).
 
         Returns
@@ -430,7 +430,7 @@ class WsabiLGP(WarpedGP):
 
     @flexible_array_dimensions
     def posterior_variance_jacobian(self, x: ndarray) -> ndarray:
-        """Get the jacobian of the posterior variance.
+        """Get the Jacobian of the posterior variance.
 
         Overrides :func:`~WarpedGP.posterior_variance_jacobian` - please see that method's documentation for further
         details on arguments and return values.
@@ -456,7 +456,7 @@ class WsabiLGP(WarpedGP):
 
     @flexible_array_dimensions
     def posterior_variance_hessian(self, x: ndarray) -> ndarray:
-        """Get the hessian of the posterior variance.
+        """Get the Hessian of the posterior variance.
 
         Overrides :func:`~WarpedGP.posterior_variance_hessian` - please see that method's documentation for further
         details on arguments and return values.

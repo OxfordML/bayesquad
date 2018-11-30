@@ -167,7 +167,7 @@ def _model_variance(integrand_model: IntegrandModel):
         Given an array of shape (num_dimensions), returns a 0D array containing the function value and an array of shape
         (num_dimensions) containing the function jacobian.
 
-        If the jacobian is not required (e.g. for plotting), the relevant calculations can be disabled by setting
+        If the Jacobian is not required (e.g. for plotting), the relevant calculations can be disabled by setting
         `calculate_jacobian=False`.
         """
         _, variance = integrand_model.posterior_mean_and_variance(x)
@@ -263,10 +263,10 @@ def _cone(centre, gradient):
         linearly with distance from the centre.
 
         Given an array of shape (num_points, num_dimensions), returns an array of shape (num_points) containing the
-        function values and an array of shape (num_points, num_dimensions) containing the function jacobians.
+        function values and an array of shape (num_points, num_dimensions) containing the function Jacobians.
 
         Given an array of shape (num_dimensions), returns a 0D array containing the function value and an array of shape
-        (num_dimensions) containing the function jacobian.
+        (num_dimensions) containing the function Jacobian.
         """
         distance = np.linalg.norm(x - centre, axis=-1)
 
@@ -277,7 +277,7 @@ def _cone(centre, gradient):
 
         jacobian = (x - centre) * gradient / distance
 
-        # The jacobian isn't defined at the centre of the cone but we return a value to keep the optimiser happy.
+        # The Jacobian isn't defined at the centre of the cone but we return a value to keep the optimiser happy.
         jacobian = ma.filled(jacobian, x)
 
         return value, jacobian

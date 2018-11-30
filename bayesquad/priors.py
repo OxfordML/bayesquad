@@ -15,7 +15,7 @@ class Prior(ABC):
 
     @abstractmethod
     def gradient(self, x: ndarray) -> Tuple[ndarray, ndarray]:
-        """Compute the jacobian and hessian of the prior's pdf at the given set of points.
+        """Compute the Jacobian and Hessian of the prior's pdf at the given set of points.
 
         Parameters
         ----------
@@ -25,7 +25,7 @@ class Prior(ABC):
         Returns
         -------
         jacobian
-            A 2D array of shape (num_points, num_dimensions), containing the value of the jacobian at each point.
+            A 2D array of shape (num_points, num_dimensions), containing the value of the Jacobian at each point.
         hessian
             A 3D array of shape (num_points, num_dimensions, num_dimensions), whose (i, j, k)-th element is the
             (j, k)-th mixed partial derivative of the pdf at the i-th point of `x`.
