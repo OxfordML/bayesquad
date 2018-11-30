@@ -1,7 +1,7 @@
 """Methods for selecting a batch of points to evaluate for Bayesian quadrature."""
-
+from abc import ABC, abstractmethod
 from math import sqrt
-from typing import List
+from typing import List, Callable
 
 import numpy as np
 import numpy.ma as ma
@@ -41,173 +41,214 @@ def select_batch(integrand_model: IntegrandModel,
         A list of arrays. Each array is a point of the new batch.
     """
     if batch_method == LOCAL_PENALISATION:
-        return select_local_penalisation_batch(integrand_model, batch_size)
+        method = _LocalPenalisation(integrand_model)
     elif batch_method == KRIGING_BELIEVER:
-        return select_kriging_believer_batch(integrand_model, batch_size)
+        method = _KrigingBeliever(integrand_model)
     elif batch_method == KRIGING_OPTIMIST:
-        return select_kriging_optimist_batch(integrand_model, batch_size)
+        method = _KrigingOptimist(integrand_model)
     else:
         raise NotImplementedError("{} is not a supported batch method.".format(batch_method))
 
-
-def select_kriging_believer_batch(integrand_model: IntegrandModel, batch_size: int) -> List[ndarray]:
-    batch = []
-    fantasised_evaluations = []
-
-    num_initial_points = 10 * integrand_model.dimensions
-
-    while len(batch) < batch_size:
-        acquisition_function = model_variance(integrand_model)
-        initial_points = integrand_model.prior.sample(num_initial_points)
-
-        log_acquisition_function = log_of_function(acquisition_function)
-        batch_point, _ = multi_start_maximise(log_acquisition_function, initial_points)
-        mean_y, _ = integrand_model.posterior_mean_and_variance(batch_point)
-
-        batch.append(batch_point)
-        fantasised_evaluations.append(mean_y)
-
-        integrand_model.update(batch_point, mean_y)
-
-    integrand_model.remove(batch, fantasised_evaluations)
-
-    return batch
+    return method.select_batch(batch_size)
 
 
-def select_kriging_optimist_batch(integrand_model: IntegrandModel, batch_size: int) -> List[ndarray]:
-    batch = []
-    fantasised_evaluations = []
+class _BatchSelectionMethod(ABC):
+    """A method for selecting a batch of points at which to evaluate an integrand, based on a model of the integrand.
 
-    num_initial_points = 10 * integrand_model.dimensions
+    This selection will always be done on the basis of an acquisition function, which can be chosen or modified by
+    this class. In general, we sequentially select batch points by maximising the acquisition function (currently, this
+    is fixed to be the posterior variance of the integrand). In order to avoid repeatedly selecting the same point (or
+    very nearby points) repeatedly, we update the acquisition function after selecting each point. Different methods
+    will perform this update in different ways."""
 
-    while len(batch) < batch_size:
-        acquisition_function = model_variance(integrand_model)
-        initial_points = integrand_model.prior.sample(num_initial_points)
+    def __init__(self, integrand_model: IntegrandModel):
+        self._integrand_model = integrand_model
+        self._batch: List[ndarray] = []
 
-        log_acquisition_function = log_of_function(acquisition_function)
-        batch_point, _ = multi_start_maximise(log_acquisition_function, initial_points)
-        mean_y, var_y = integrand_model.posterior_mean_and_variance(batch_point)
-        optimistic_y = mean_y + np.sqrt(var_y)
+    def select_batch(self, batch_size) -> List[ndarray]:
+        while len(self._batch) < batch_size:
+            acquisition_function = self._get_acquisition_function()
+            initial_points = self._select_initial_points()
+            batch_point, _ = multi_start_maximise(acquisition_function, initial_points)
 
-        batch.append(batch_point)
-        fantasised_evaluations.append(optimistic_y)
+            self._batch.append(batch_point)
 
-        integrand_model.update(batch_point, optimistic_y)
+        self._cleanup()
 
-    integrand_model.remove(batch, fantasised_evaluations)
+        return self._batch
 
-    return batch
+    @abstractmethod
+    def _get_acquisition_function(self) -> Callable:
+        """Based on the current state (including at least the current state of the `IntegrandModel` and the batch points
+        selected so far), return the acquisition function to be maximised to select the next batch point."""
+
+    def _cleanup(self):
+        """After the full batch has been chosen, perform any necessary cleanup/finalisation. By default, this method
+        takes no action."""
+        return
+
+    def _select_initial_points(self):
+        """Select the initial points for multi-start maximisation of the acquisition function."""
+        num_initial_points = 10 * self._integrand_model.dimensions
+
+        return self._integrand_model.prior.sample(num_initial_points)
 
 
-def select_local_penalisation_batch(integrand_model: IntegrandModel, batch_size: int) -> List[ndarray]:
-    """Select a batch of points based on a local penalisation method.
+class _KrigingBeliever(_BatchSelectionMethod):
+    """After each batch point is selected, this method updates the model with fictitious data generated by taking the
+    posterior mean of the model at the batch point."""
 
-    Parameters
-    ----------
-    integrand_model
-        The model with which we wish to perform Bayesian quadrature.
-    batch_size
-        The number of points to return in the new batch.
+    def __init__(self, *args, **kwargs):
+        self._fantasised_evaluations: List[ndarray] = []
+        super().__init__(*args, **kwargs)
 
-    Returns
-    -------
-    list[ndarray]
-        A list of arrays. Each array is a point of the new batch.
+    def _get_acquisition_function(self) -> Callable:
+        if self._batch:
+            batch_point = self._batch[-1]
+
+            mean_y, _ = self._integrand_model.posterior_mean_and_variance(batch_point)
+            self._fantasised_evaluations.append(mean_y)
+
+            self._integrand_model.update(batch_point, mean_y)
+
+        acquisition_function = model_variance(self._integrand_model)
+        return log_of_function(acquisition_function)
+
+    def _cleanup(self):
+        points_with_fantasised_evaluations = self._batch[:-1]
+        self._integrand_model.remove(points_with_fantasised_evaluations, self._fantasised_evaluations)
+
+
+class _KrigingOptimist(_BatchSelectionMethod):
+    """After each batch point is selected, this method updates the model with fictitious data generated by taking the
+    posterior mean of the model at the batch point, plus two posterior standard deviations."""
+
+    def __init__(self, *args, **kwargs):
+        self._fantasised_evaluations: List[ndarray] = []
+        super().__init__(*args, **kwargs)
+
+    def _get_acquisition_function(self) -> Callable:
+        if self._batch:
+            batch_point = self._batch[-1]
+
+            mean_y, var_y = self._integrand_model.posterior_mean_and_variance(batch_point)
+            optimistic_y = mean_y + 2 * np.sqrt(var_y)
+            self._fantasised_evaluations.append(optimistic_y)
+
+            self._integrand_model.update(batch_point, optimistic_y)
+
+        acquisition_function = model_variance(self._integrand_model)
+        return log_of_function(acquisition_function)
+
+    def _cleanup(self):
+        points_with_fantasised_evaluations = self._batch[:-1]
+        self._integrand_model.remove(points_with_fantasised_evaluations, self._fantasised_evaluations)
+
+
+class _LocalPenalisation(_BatchSelectionMethod):
+    """After each batch point is selected, this method directly penalises the acquisition function around the point.
 
     Notes
     -----
-    In this method, we sequentially select batch points by maximising an acquisition function (currently, this is fixed
-    to be the posterior variance of the integrand). In order to avoid repeatedly selecting the same point (or very
-    nearby points) repeatedly, we update the acquisition function after selecting each point to penalise that point and
-    a region around it. In the method used here, we first find the maximal gradient of the acquisition function, and
-    then take the penalised function to be the minimum of the original function and a cone with half of this maximal
-    gradient around the selected point. We choose half the gradient since the true function must have zero gradient
-    at the selected point and at the nearest maximum, so the average gradient here will not be as large as the maximum.
+    In this method, after choosing a batch point we maximise the norm of the gradient of the acquisition function in the
+    neighbourhood of this point. We then take the penalised function to be the minimum of the original function and a
+    cone with half of this maximal gradient around the selected point. We choose half the gradient since the true
+    function must have zero gradient at the selected point and at the nearest maximum, so the average gradient here will
+    not be as large as the maximum.
+
+    Since this minimum of multiple functions will not be smooth, we use an approximation to the minimum (a "soft
+    minimum"). This is done by taking the p-norm of all function values for a negative value of p.
     """
-    batch = []
-    penaliser_gradients = []
 
-    acquisition_function = model_variance(integrand_model)
-    num_initial_points = 10 * integrand_model.dimensions
+    def __init__(self, *args, **kwargs):
+        self._penaliser_gradients: List[float] = []
+        super().__init__(*args, **kwargs)
 
-    while len(batch) < batch_size:
+    def _get_acquisition_function(self) -> Callable:
+        if self._batch:
+            max_gradient = self._find_max_gradient_near_latest_batch_point()
+
+            self._penaliser_gradients.append(max_gradient / 2)
+
+        acquisition_function = model_variance(self._integrand_model)
+
         softmin_penalised_log_acquisition_function = \
-            _get_soft_penalised_log_acquisition_function(acquisition_function, batch, penaliser_gradients)
+            self._get_soft_penalised_log_acquisition_function(acquisition_function)
 
-        initial_points = integrand_model.prior.sample(num_initial_points)
-        batch_point, value = multi_start_maximise(softmin_penalised_log_acquisition_function,
-                                                  initial_points)
-        batch.append(batch_point)
+        return softmin_penalised_log_acquisition_function
 
-        if len(batch) < batch_size:
-            num_local_initial_points = integrand_model.dimensions * 10
-            local_initial_points = _get_local_initial_points(batch_point, num_local_initial_points)
+    def _find_max_gradient_near_latest_batch_point(self) -> float:
+        batch_point = self._batch[-1]
 
-            log_variance_gradient_squared_and_jacobian = \
-                log_of_function(model_variance_norm_of_gradient_squared(integrand_model))
-            _, max_gradient_squared = multi_start_maximise(log_variance_gradient_squared_and_jacobian,
+        num_local_initial_points = self._integrand_model.dimensions * 10
+        local_initial_points = _get_local_initial_points(batch_point, num_local_initial_points)
+
+        _log_variance_gradient_squared_and_jacobian = \
+            log_of_function(model_variance_norm_of_gradient_squared(self._integrand_model))
+
+        _, log_max_gradient_squared = multi_start_maximise(_log_variance_gradient_squared_and_jacobian,
                                                            local_initial_points)
-            max_gradient = sqrt(max_gradient_squared)
 
-            penaliser_gradients.append(max_gradient / 2)
+        max_gradient_squared = np.exp(log_max_gradient_squared)
+        return sqrt(max_gradient_squared)
 
-    return batch
+    def _get_soft_penalised_log_acquisition_function(self, acquisition_function) -> Callable:
+        """Create a function which will return the log of a soft minimum of the given acquisition function and the given
+        penalisers at any point, or set of points.
+
+        The soft minimisation is performed by taking the p-norm of all function values for a negative value of p. This
+        gives a differentiable function which is approximately equal to the min of the given functions.
+
+        If the Jacobian is not required (e.g. for plotting), the relevant calculations can be disabled by setting
+        `calculate_jacobian=False`.
+        """
+        penaliser_centres = self._batch
+        penaliser_gradients = self._penaliser_gradients
+
+        penalisers = [_cone(centre, gradient) for centre, gradient in zip(penaliser_centres, penaliser_gradients)]
+        p = 6
+
+        @plottable("Soft penalised log acquisition function", default_plotting_parameters={'calculate_jacobian': False})
+        def penalised_acquisition_function(x, *, calculate_jacobian=True):
+            function_evaluations = \
+                [acquisition_function(x, calculate_jacobian=calculate_jacobian)] + [f(x) for f in penalisers]
+            function_values, function_jacobians = [np.array(ret) for ret in zip(*function_evaluations)]
+
+            # This is necessary to ensure that function_values has the same dimensions as function_jacobians, so that we
+            # can index into both arrays in a consistent manner.
+            function_values = np.expand_dims(function_values, -1)
+
+            # We want to avoid dividing by zero and taking the log of zero, so we mask out all zeroes.
+            function_values = ma.masked_equal(function_values, 0)
+
+            min_function_values = np.min(function_values, axis=0)
+            min_function_values = ma.masked_array(min_function_values, mask=np.any(function_values.mask, axis=0))
+
+            # Any values more than roughly an order of magnitude from the minimum value will be irrelevant to the final
+            # result, but might cause overflows, so we clip them here.
+            scaled_function_values = (function_values / min_function_values).clip(max=1e2)
+
+            scaled_inverse_power_sum = (1 / (scaled_function_values ** p)).sum(axis=0)
+            values = -ma.log(scaled_inverse_power_sum) / p + ma.log(min_function_values)
+            values = ma.filled(values, -1e9)
+
+            if calculate_jacobian:
+                scaled_function_jacobians = (function_jacobians / min_function_values).clip(max=1e2, min=-1e2)
+                jacobian_numerator = (1 / (scaled_function_values ** (p + 1)) * scaled_function_jacobians).sum(axis=0)
+                jacobians = jacobian_numerator / scaled_inverse_power_sum
+                jacobians = ma.filled(jacobians, np.random.randn())
+            else:
+                jacobians = None
+
+            return values.squeeze(), jacobians
+
+        return penalised_acquisition_function
 
 
 def _get_local_initial_points(central_point, num_points):
     """Get a set of points close to a given point."""
-    perturbations = 0.1 * np.random.randn(num_points, *central_point.shape)
+    perturbations = 0.01 * np.random.randn(*central_point.shape, num_points)
     return central_point + perturbations
-
-
-def _get_soft_penalised_log_acquisition_function(acquisition_function, penaliser_centres, penaliser_gradients):
-    """Create a function which will return the log of a soft minimum of the given acquisition function and the given
-    penalisers at any point, or set of points.
-
-    The soft minimisation is performed by taking the p-norm of all function values for a negative value of p. This
-    gives a differentiable function which is approximately equal to the min of the given functions.
-
-    If the jacobian is not required (e.g. for plotting), the relevant calculations can be disabled by setting
-    `calculate_jacobian=False`.
-    """
-    penalisers = [_cone(centre, gradient) for centre, gradient in zip(penaliser_centres, penaliser_gradients)]
-    p = 6
-
-    @plottable("Soft penalised log acquisition function", default_plotting_parameters={'calculate_jacobian': False})
-    def penalised_acquisition_function(x, *, calculate_jacobian=True):
-        function_evaluations = \
-            [acquisition_function(x, calculate_jacobian=calculate_jacobian)] + [f(x) for f in penalisers]
-        function_values, function_jacobians = [np.array(ret) for ret in zip(*function_evaluations)]
-
-        # This is necessary to ensure that function_values has the same dimensions as function_jacobians, so that we can
-        # index into both arrays in a consistent manner.
-        function_values = np.expand_dims(function_values, -1)
-
-        # We want to avoid dividing by zero and taking the log of zero, so we mask out all zeroes.
-        function_values = ma.masked_equal(function_values, 0)
-
-        min_function_values = np.min(function_values, axis=0)
-        min_function_values = ma.masked_array(min_function_values, mask=np.any(function_values.mask, axis=0))
-
-        # Any values more than roughly an order of magnitude from the minimum value will be irrelevant to the final
-        # result, but might cause overflows, so we clip them here.
-        scaled_function_values = (function_values / min_function_values).clip(max=1e2)
-
-        scaled_inverse_power_sum = (1 / (scaled_function_values ** p)).sum(axis=0)
-        values = -ma.log(scaled_inverse_power_sum) / p + ma.log(min_function_values)
-        values = ma.filled(values, -1e3)
-
-        if calculate_jacobian:
-            scaled_function_jacobians = (function_jacobians / min_function_values).clip(max=1e2, min=-1e2)
-            jacobian_numerator = (1 / (scaled_function_values ** (p + 1)) * scaled_function_jacobians).sum(axis=0)
-            jacobians = jacobian_numerator / scaled_inverse_power_sum
-            jacobians = ma.filled(jacobians, np.random.randn())
-        else:
-            jacobians = None
-
-        return values.squeeze(), jacobians
-
-    return penalised_acquisition_function
 
 
 def _cone(centre, gradient):
