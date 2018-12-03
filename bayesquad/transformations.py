@@ -25,8 +25,8 @@ def log_of_function(original_function: Callable) -> Callable:
         Jac(f(x)), then Jac(log(f(x))) will also be `None`.
     """
     @wraps(original_function)
-    def log_function(x, *inner_args, **inner_kwargs):
-        value, jacobian = original_function(x, *inner_args, **inner_kwargs)
+    def log_function(x, *args, **kwargs):
+        value, jacobian = original_function(x, *args, **kwargs)
         masked_value = ma.masked_equal(value, 0)
 
         log_value = ma.log(masked_value)
