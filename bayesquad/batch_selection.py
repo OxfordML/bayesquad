@@ -181,7 +181,7 @@ class _LocalPenalisation(_BatchSelectionMethod):
         batch_point = self._batch[-1]
 
         num_local_initial_points = self._integrand_model.dimensions * 10
-        local_initial_points = _get_local_initial_points(batch_point, num_local_initial_points)
+        local_initial_points = self._get_local_initial_points(batch_point, num_local_initial_points)
 
         _log_variance_gradient_squared_and_jacobian = \
             log_of_function(model_variance_norm_of_gradient_squared(self._integrand_model))
@@ -205,7 +205,7 @@ class _LocalPenalisation(_BatchSelectionMethod):
         penaliser_centres = self._batch
         penaliser_gradients = self._penaliser_gradients
 
-        penalisers = [_cone(centre, gradient) for centre, gradient in zip(penaliser_centres, penaliser_gradients)]
+        penalisers = [self._cone(centre, gradient) for centre, gradient in zip(penaliser_centres, penaliser_gradients)]
         p = 6
 
         @plottable("Soft penalised log acquisition function", default_plotting_parameters={'calculate_jacobian': False})
@@ -244,36 +244,36 @@ class _LocalPenalisation(_BatchSelectionMethod):
 
         return penalised_acquisition_function
 
+    @staticmethod
+    def _get_local_initial_points(central_point, num_points):
+        """Get a set of points close to a given point."""
+        perturbations = 0.01 * np.random.randn(*central_point.shape, num_points)
+        return central_point + perturbations
 
-def _get_local_initial_points(central_point, num_points):
-    """Get a set of points close to a given point."""
-    perturbations = 0.01 * np.random.randn(*central_point.shape, num_points)
-    return central_point + perturbations
+    @staticmethod
+    def _cone(centre, gradient):
+        def f(x):
+            """Evaluate a cone around the given centre with the given gradient, i.e. a function whose value increases
+            linearly with distance from the centre.
 
+            Given an array of shape (num_points, num_dimensions), returns an array of shape (num_points) containing the
+            function values and an array of shape (num_points, num_dimensions) containing the function Jacobians.
 
-def _cone(centre, gradient):
-    def f(x):
-        """Evaluate a cone around the given centre with the given gradient, i.e. a function whose value increases
-        linearly with distance from the centre.
+            Given an array of shape (num_dimensions), returns a 0D array containing the function value and an array of
+            shape (num_dimensions) containing the function Jacobian.
+            """
+            distance = np.linalg.norm(x - centre, axis=-1)
 
-        Given an array of shape (num_points, num_dimensions), returns an array of shape (num_points) containing the
-        function values and an array of shape (num_points, num_dimensions) containing the function Jacobians.
+            value = distance * gradient
 
-        Given an array of shape (num_dimensions), returns a 0D array containing the function value and an array of shape
-        (num_dimensions) containing the function Jacobian.
-        """
-        distance = np.linalg.norm(x - centre, axis=-1)
+            distance = np.expand_dims(distance, -1)
+            distance = ma.masked_equal(distance, 0)  # Avoid division by zero
 
-        value = distance * gradient
+            jacobian = (x - centre) * gradient / distance
 
-        distance = np.expand_dims(distance, -1)
-        distance = ma.masked_equal(distance, 0)  # Avoid division by zero
+            # The Jacobian isn't defined at the centre of the cone but we return a value to keep the optimiser happy.
+            jacobian = ma.filled(jacobian, x)
 
-        jacobian = (x - centre) * gradient / distance
+            return value, jacobian
 
-        # The Jacobian isn't defined at the centre of the cone but we return a value to keep the optimiser happy.
-        jacobian = ma.filled(jacobian, x)
-
-        return value, jacobian
-
-    return f
+        return f
