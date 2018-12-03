@@ -199,8 +199,8 @@ class _LocalPenalisation(_BatchSelectionMethod):
         The soft minimisation is performed by taking the p-norm of all function values for a negative value of p. This
         gives a differentiable function which is approximately equal to the min of the given functions.
 
-        If the Jacobian is not required (e.g. for plotting), the relevant calculations can be disabled by setting
-        `calculate_jacobian=False`.
+        If the Jacobian is not required (e.g. for plotting), the relevant calculations can be disabled by passing
+        `calculate_jacobian=False` as a parameter to the returned function.
         """
         penaliser_centres = self._batch
         penaliser_gradients = self._penaliser_gradients
@@ -267,11 +267,11 @@ class _LocalPenalisation(_BatchSelectionMethod):
             value = distance * gradient
 
             distance = np.expand_dims(distance, -1)
-            distance = ma.masked_equal(distance, 0)  # Avoid division by zero
+            distance = ma.masked_equal(distance, 0)  # Avoid division by zero at the centre.
 
             jacobian = (x - centre) * gradient / distance
 
-            # The Jacobian isn't defined at the centre of the cone but we return a value to keep the optimiser happy.
+            # The Jacobian isn't defined at the centre of the cone but we must return a value.
             jacobian = ma.filled(jacobian, x)
 
             return value, jacobian
