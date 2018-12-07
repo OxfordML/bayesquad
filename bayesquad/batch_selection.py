@@ -66,6 +66,7 @@ class _BatchSelectionMethod(ABC):
         self._batch: List[ndarray] = []
 
     def select_batch(self, batch_size: int) -> List[ndarray]:
+        """Select a batch containing the given number of points."""
         while len(self._batch) < batch_size:
             acquisition_function = self._get_acquisition_function()
             initial_points = self._select_initial_points()

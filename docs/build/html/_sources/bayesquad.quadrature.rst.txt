@@ -3,5 +3,5 @@ bayesquad.quadrature module
 
 .. automodule:: bayesquad.quadrature
     :members:
-    :undoc-members:
+    :private-members:
     :show-inheritance:
