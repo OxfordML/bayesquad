@@ -95,14 +95,16 @@ def plotting_callback(func):
 plotting.add_callback("Soft penalised log acquisition function", plotting_callback)
 plot_true_function()
 
+
 # Run algorithm.
 
 BATCHES = 25
 BATCH_SIZE = 4
+BATCH_METHOD = LOCAL_PENALISATION
 
 for i in range(BATCHES):
     plot_integrand_posterior(model)
-    batch = select_batch(model, BATCH_SIZE, LOCAL_PENALISATION)
+    batch = select_batch(model, BATCH_SIZE, BATCH_METHOD)
 
     X = np.array(batch)
     Y = true_function(X)
