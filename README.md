@@ -18,3 +18,4 @@ Check out this repository and run `pip install .` in the root directory of the r
 ## Documentation
 
 Documentation is still a work in progress, but some docs are available at https://OxfordML.github.io/bayesquad
+
