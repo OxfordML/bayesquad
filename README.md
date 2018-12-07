@@ -13,7 +13,7 @@ And for gory detail:
 
 ## Installation
 
-Simply run `python setup.py install` in the root directory of this repository. You should then be able to run the example scripts.
+Check out this repository and run `pip install .` in the root directory of the repository (i.e. in the directory containing setup.py). You should then be able to run the example scripts.
 
 ## Documentation
 
