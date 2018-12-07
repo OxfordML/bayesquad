@@ -247,7 +247,7 @@ class _LocalPenalisation(_BatchSelectionMethod):
     @staticmethod
     def _get_local_initial_points(central_point, num_points):
         """Get a set of points close to a given point."""
-        perturbations = 0.01 * np.random.randn(*central_point.shape, num_points)
+        perturbations = 0.01 * np.random.randn(num_points, *central_point.shape)
         return central_point + perturbations
 
     @staticmethod
