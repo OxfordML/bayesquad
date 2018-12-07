@@ -54,7 +54,7 @@
 
 <div class="viewcode-block" id="Prior.gradient"><a class="viewcode-back" href="../../bayesquad.priors.html#bayesquad.priors.Prior.gradient">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Compute the jacobian and hessian of the prior&#39;s pdf at the given set of points.</span>
+        <span class="sd">&quot;&quot;&quot;Compute the Jacobian and Hessian of the prior&#39;s pdf at the given set of points.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -64,20 +64,35 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        jacobian</span>
-<span class="sd">            A 2D array of shape (num_points, num_dimensions), containing the value of the jacobian at each point.</span>
+<span class="sd">            A 2D array of shape (num_points, num_dimensions), containing the value of the Jacobian at each point.</span>
 <span class="sd">        hessian</span>
 <span class="sd">            A 3D array of shape (num_points, num_dimensions, num_dimensions), whose (i, j, k)-th element is the</span>
 <span class="sd">            (j, k)-th mixed partial derivative of the pdf at the i-th point of `x`.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="Prior.sample"><a class="viewcode-back" href="../../bayesquad.priors.html#bayesquad.priors.Prior.sample">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Sample a point from the prior.</span>
+    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Sample `num_points` points independently from the prior.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        ndarray</span>
-<span class="sd">            A sample from the prior, as a 1D array of shape (num_dimensions).</span>
+<span class="sd">            `num_points` samples from the prior, as a 2D array of shape (num_points, num_dimensions).</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="Prior.logpdf"><a class="viewcode-back" href="../../bayesquad.priors.html#bayesquad.priors.Prior.logpdf">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">logpdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate the prior&#39;s log pdf at the given set of points.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            An array of shape (num_points, num_dimensions).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray</span>
+<span class="sd">            A 1D array of shape (num_points).</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
     <span class="nd">@abstractmethod</span>
@@ -123,9 +138,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_dimensions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">mean</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_multivariate_normal</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">multivariate_normal</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="n">mean</span><span class="p">,</span> <span class="n">cov</span><span class="o">=</span><span class="n">covariance</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Gaussian.sample"><a class="viewcode-back" href="../../bayesquad.priors.html#bayesquad.priors.Gaussian.sample">[docs]</a>    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+<div class="viewcode-block" id="Gaussian.sample"><a class="viewcode-back" href="../../bayesquad.priors.html#bayesquad.priors.Gaussian.sample">[docs]</a>    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;See :func:`~Prior.sample`&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_multivariate_normal</span><span class="o">.</span><span class="n">rvs</span><span class="p">())</span></div>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_multivariate_normal</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">num_points</span><span class="p">))</span><span class="o">.</span><span class="n">T</span></div>
 
 <div class="viewcode-block" id="Gaussian.gradient"><a class="viewcode-back" href="../../bayesquad.priors.html#bayesquad.priors.Gaussian.gradient">[docs]</a>    <span class="k">def</span> <span class="nf">gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;See :func:`~Prior.gradient`&quot;&quot;&quot;</span>
@@ -142,6 +157,11 @@
         <span class="n">hessian</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span><span class="n">x</span><span class="p">)[:,</span> <span class="n">newaxis</span><span class="p">,</span> <span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">outer_products</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">precision</span><span class="p">[</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span>
 
         <span class="k">return</span> <span class="n">jacobian</span><span class="p">,</span> <span class="n">hessian</span></div>
+
+<div class="viewcode-block" id="Gaussian.logpdf"><a class="viewcode-back" href="../../bayesquad.priors.html#bayesquad.priors.Gaussian.logpdf">[docs]</a>    <span class="k">def</span> <span class="nf">logpdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;See :func:`~Prior.logpdf`&quot;&quot;&quot;</span>
+        <span class="n">validate_dimensions</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dimensions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_multivariate_normal</span><span class="o">.</span><span class="n">logpdf</span><span class="p">(</span><span class="n">x</span><span class="p">))</span></div>
 
     <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;See :func:`~Prior.__call__`&quot;&quot;&quot;</span>

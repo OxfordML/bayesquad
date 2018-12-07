@@ -38,22 +38,6 @@
   <div class="section" id="module-bayesquad.plotting">
 <span id="bayesquad-plotting-module"></span><h1>bayesquad.plotting module<a class="headerlink" href="#module-bayesquad.plotting" title="Permalink to this headline">¶</a></h1>
 <p>Functions to allow plotting code to be decoupled from the rest of the code.</p>
-<dl class="class">
-<dt id="bayesquad.plotting.Registry">
-<em class="property">class </em><code class="descclassname">bayesquad.plotting.</code><code class="descname">Registry</code><a class="reference internal" href="_modules/bayesquad/plotting.html#Registry"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.plotting.Registry" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="method">
-<dt id="bayesquad.plotting.Registry.add_callback">
-<code class="descname">add_callback</code><span class="sig-paren">(</span><em>identifier: str</em>, <em>callback: Callable</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/plotting.html#Registry.add_callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.plotting.Registry.add_callback" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="bayesquad.plotting.Registry.update">
-<code class="descname">update</code><span class="sig-paren">(</span><em>identifier: str</em>, <em>func: Callable</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/plotting.html#Registry.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.plotting.Registry.update" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
 <dl class="function">
 <dt id="bayesquad.plotting.add_callback">
 <code class="descclassname">bayesquad.plotting.</code><code class="descname">add_callback</code><span class="sig-paren">(</span><em>identifier: str</em>, <em>callback: Callable</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/plotting.html#add_callback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.plotting.add_callback" title="Permalink to this definition">¶</a></dt>
@@ -61,12 +45,12 @@
 
 <dl class="function">
 <dt id="bayesquad.plotting.plottable">
-<code class="descclassname">bayesquad.plotting.</code><code class="descname">plottable</code><span class="sig-paren">(</span><em>identifier: str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/plotting.html#plottable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.plotting.plottable" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">bayesquad.plotting.</code><code class="descname">plottable</code><span class="sig-paren">(</span><em>identifier: str</em>, <em>*</em>, <em>default_plotting_parameters=mappingproxy({})</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/plotting.html#plottable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.plotting.plottable" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
-<dt id="bayesquad.plotting.returns_plottable">
-<code class="descclassname">bayesquad.plotting.</code><code class="descname">returns_plottable</code><span class="sig-paren">(</span><em>identifier: str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/plotting.html#returns_plottable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.plotting.returns_plottable" title="Permalink to this definition">¶</a></dt>
+<dt id="bayesquad.plotting.register_as_plottable">
+<code class="descclassname">bayesquad.plotting.</code><code class="descname">register_as_plottable</code><span class="sig-paren">(</span><em>func: Callable</em>, <em>identifier: str</em>, <em>*</em>, <em>default_plotting_parameters=mappingproxy({})</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/plotting.html#register_as_plottable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.plotting.register_as_plottable" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </div>

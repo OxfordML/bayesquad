@@ -39,16 +39,16 @@
   <h1>Source code for bayesquad.quadrature</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Provides a model of the integrand, with the capability to perform Bayesian quadrature.&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">GPy.kern</span> <span class="k">import</span> <span class="n">Kern</span><span class="p">,</span> <span class="n">RBF</span>
 <span class="kn">from</span> <span class="nn">multimethod</span> <span class="k">import</span> <span class="n">multimethod</span>
 <span class="kn">from</span> <span class="nn">numpy</span> <span class="k">import</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">newaxis</span>
 
-<span class="kn">from</span> <span class="nn">.decorators</span> <span class="k">import</span> <span class="n">flexible_array_dimensions</span>
+<span class="kn">from</span> <span class="nn">._decorators</span> <span class="k">import</span> <span class="n">flexible_array_dimensions</span>
 <span class="kn">from</span> <span class="nn">.gps</span> <span class="k">import</span> <span class="n">WarpedGP</span><span class="p">,</span> <span class="n">WsabiLGP</span>
-<span class="kn">from</span> <span class="nn">.maths_helpers</span> <span class="k">import</span> <span class="n">jacobian_of_f_squared_times_g</span><span class="p">,</span> <span class="n">hessian_of_f_squared_times_g</span>
+<span class="kn">from</span> <span class="nn">._maths_helpers</span> <span class="k">import</span> <span class="n">jacobian_of_f_squared_times_g</span><span class="p">,</span> <span class="n">hessian_of_f_squared_times_g</span>
 <span class="kn">from</span> <span class="nn">.priors</span> <span class="k">import</span> <span class="n">Gaussian</span><span class="p">,</span> <span class="n">Prior</span>
 
 
@@ -91,12 +91,12 @@
 
 <div class="viewcode-block" id="IntegrandModel.posterior_variance_jacobian"><a class="viewcode-back" href="../../bayesquad.quadrature.html#bayesquad.quadrature.IntegrandModel.posterior_variance_jacobian">[docs]</a>    <span class="nd">@flexible_array_dimensions</span>
     <span class="k">def</span> <span class="nf">posterior_variance_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the jacobian of the posterior variance of the product of warped GP and prior at a point or set of points.</span>
+        <span class="sd">&quot;&quot;&quot;Get the Jacobian of the posterior variance of the product of warped GP and prior at a point or set of points.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x</span>
-<span class="sd">            The point(s) at which to evaluate the jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
+<span class="sd">            The point(s) at which to evaluate the Jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
 <span class="sd">            array of shape (num_dimensions).</span>
 
 <span class="sd">        Returns</span>
@@ -104,7 +104,7 @@
 <span class="sd">        jacobian : ndarray</span>
 <span class="sd">            A 2D array of shape (num_points, num_dimensions) if the input was 2D, or a 1D array of shape</span>
 <span class="sd">            (num_dimensions) if the input was 1D. The :math:`(i, j)`-th element is the :math:`j`-th component of the</span>
-<span class="sd">            jacobian of the posterior variance at the :math:`i`-th point of `x`.</span>
+<span class="sd">            Jacobian of the posterior variance at the :math:`i`-th point of `x`.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -123,12 +123,12 @@
 
 <div class="viewcode-block" id="IntegrandModel.posterior_variance_hessian"><a class="viewcode-back" href="../../bayesquad.quadrature.html#bayesquad.quadrature.IntegrandModel.posterior_variance_hessian">[docs]</a>    <span class="nd">@flexible_array_dimensions</span>
     <span class="k">def</span> <span class="nf">posterior_variance_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the hessian of the posterior variance of the product of warped GP and prior at a point, or set of points.</span>
+        <span class="sd">&quot;&quot;&quot;Get the Hessian of the posterior variance of the product of warped GP and prior at a point, or set of points.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x</span>
-<span class="sd">            The point(s) at which to evaluate the hessian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
+<span class="sd">            The point(s) at which to evaluate the Hessian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
 <span class="sd">            array of shape (num_dimensions).</span>
 
 <span class="sd">        Returns</span>
@@ -154,7 +154,7 @@
             <span class="n">f</span><span class="o">=</span><span class="n">prior</span><span class="p">,</span> <span class="n">f_jacobian</span><span class="o">=</span><span class="n">prior_jacobian</span><span class="p">,</span> <span class="n">f_hessian</span><span class="o">=</span><span class="n">prior_hessian</span><span class="p">,</span>
             <span class="n">g</span><span class="o">=</span><span class="n">gp_variance</span><span class="p">,</span> <span class="n">g_jacobian</span><span class="o">=</span><span class="n">gp_variance_jacobian</span><span class="p">,</span> <span class="n">g_hessian</span><span class="o">=</span><span class="n">gp_variance_hessian</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="IntegrandModel.update"><a class="viewcode-back" href="../../bayesquad.quadrature.html#bayesquad.quadrature.IntegrandModel.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">):</span>
+<div class="viewcode-block" id="IntegrandModel.update"><a class="viewcode-back" href="../../bayesquad.quadrature.html#bayesquad.quadrature.IntegrandModel.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Add new data to the model.</span>
 
 <span class="sd">        Parameters</span>
@@ -170,6 +170,26 @@
 <span class="sd">            If the number of points in `x` does not equal the number of points in `y`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">warped_gp</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IntegrandModel.remove"><a class="viewcode-back" href="../../bayesquad.quadrature.html#bayesquad.quadrature.IntegrandModel.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]],</span> <span class="n">y</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Remove data from the model.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions), or a list of such</span>
+<span class="sd">            arrays.</span>
+<span class="sd">        y</span>
+<span class="sd">            A 1D array of shape (num_points), or a list of such arrays. If `x` is 1D, this may also be a 0D array or</span>
+<span class="sd">            float. Must be of the same type as `x`.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the number of points in `x` does not equal the number of points in `y`.</span>
+<span class="sd">            If `x` is an array and `y` is a list, or vice versa.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">warped_gp</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="IntegrandModel.integral_mean"><a class="viewcode-back" href="../../bayesquad.quadrature.html#bayesquad.quadrature.IntegrandModel.integral_mean">[docs]</a>    <span class="k">def</span> <span class="nf">integral_mean</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Compute the mean of the integral of the function under this model.&quot;&quot;&quot;</span>
@@ -199,15 +219,13 @@
     <span class="n">kernel_variance</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">variance</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="n">X_D</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">X</span>
-    <span class="n">Y_D</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">Y</span>
-    <span class="n">K_D_inv</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">posterior</span><span class="o">.</span><span class="n">woodbury_inv</span>
 
     <span class="n">mu</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">mean</span>
     <span class="n">sigma</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">covariance</span>
     <span class="n">sigma_inv</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">precision</span>
 
     <span class="n">nu</span> <span class="o">=</span> <span class="p">(</span><span class="n">X_D</span><span class="p">[:,</span> <span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">X_D</span><span class="p">[</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span> <span class="o">/</span> <span class="mi">2</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">K_D_inv</span> <span class="o">@</span> <span class="n">Y_D</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">posterior</span><span class="o">.</span><span class="n">woodbury_vector</span>
 
     <span class="n">L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">X_D</span><span class="p">[:,</span> <span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">X_D</span><span class="p">[</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">kernel_lengthscale</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
     <span class="n">L</span> <span class="o">=</span> <span class="n">kernel_variance</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">L</span>

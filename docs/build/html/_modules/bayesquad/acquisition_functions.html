@@ -1,0 +1,151 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>bayesquad.acquisition_functions &#8212; Batch Bayesian quadrature  documentation</title>
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Batch Bayesian quadrature  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for bayesquad.acquisition_functions</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Acquisition functions and related functions.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">.plotting</span> <span class="k">import</span> <span class="n">plottable</span>
+<span class="kn">from</span> <span class="nn">.quadrature</span> <span class="k">import</span> <span class="n">IntegrandModel</span>
+
+
+<div class="viewcode-block" id="model_variance"><a class="viewcode-back" href="../../bayesquad.acquisition_functions.html#bayesquad.acquisition_functions.model_variance">[docs]</a><span class="k">def</span> <span class="nf">model_variance</span><span class="p">(</span><span class="n">integrand_model</span><span class="p">:</span> <span class="n">IntegrandModel</span><span class="p">):</span>
+
+    <span class="nd">@plottable</span><span class="p">(</span><span class="s2">&quot;Model variance&quot;</span><span class="p">,</span> <span class="n">default_plotting_parameters</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;calculate_jacobian&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">})</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">calculate_jacobian</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate the variance, and the Jacobian of the variance, for the given `IntegrandModel` at a point, or a set</span>
+<span class="sd">        of points.</span>
+
+<span class="sd">        Given an array of shape (num_points, num_dimensions), returns an array of shape (num_points) containing the</span>
+<span class="sd">        function values and an array of shape (num_points, num_dimensions) containing the function Jacobians.</span>
+
+<span class="sd">        Given an array of shape (num_dimensions), returns a 0D array containing the function value and an array of shape</span>
+<span class="sd">        (num_dimensions) containing the function Jacobian.</span>
+
+<span class="sd">        If the Jacobian is not required (e.g. for plotting), the relevant calculations can be disabled by setting</span>
+<span class="sd">        `calculate_jacobian=False`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">variance</span> <span class="o">=</span> <span class="n">integrand_model</span><span class="o">.</span><span class="n">posterior_mean_and_variance</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">calculate_jacobian</span><span class="p">:</span>
+            <span class="n">variance_jacobian</span> <span class="o">=</span> <span class="n">integrand_model</span><span class="o">.</span><span class="n">posterior_variance_jacobian</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">variance_jacobian</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">variance</span><span class="p">,</span> <span class="n">variance_jacobian</span>
+
+    <span class="k">return</span> <span class="n">f</span></div>
+
+
+<div class="viewcode-block" id="model_variance_norm_of_gradient_squared"><a class="viewcode-back" href="../../bayesquad.acquisition_functions.html#bayesquad.acquisition_functions.model_variance_norm_of_gradient_squared">[docs]</a><span class="k">def</span> <span class="nf">model_variance_norm_of_gradient_squared</span><span class="p">(</span><span class="n">integrand_model</span><span class="p">:</span> <span class="n">IntegrandModel</span><span class="p">):</span>
+
+    <span class="nd">@plottable</span><span class="p">(</span><span class="s2">&quot;Gradient squared&quot;</span><span class="p">,</span> <span class="n">default_plotting_parameters</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;calculate_jacobian&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">})</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">calculate_jacobian</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate the squared norm of the gradient of the variance, and the Jacobian of this quantity, for the given</span>
+<span class="sd">        `IntegrandModel` at a point, or a set of points.</span>
+
+<span class="sd">        Given an array of shape (num_points, num_dimensions), returns an array of shape (num_points) containing the</span>
+<span class="sd">        function values and an array of shape (num_points, num_dimensions) containing the function Jacobians.</span>
+
+<span class="sd">        Given an array of shape (num_dimensions), returns a 0D array containing the function value and an array of shape</span>
+<span class="sd">        (num_dimensions) containing the function Jacobian.</span>
+
+<span class="sd">        If the Jacobian is not required (e.g. for plotting), the relevant calculations can be disabled by setting</span>
+<span class="sd">        `calculate_jacobian=False`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">variance_jacobian</span> <span class="o">=</span> <span class="n">integrand_model</span><span class="o">.</span><span class="n">posterior_variance_jacobian</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># Inner product of the Jacobian with itself, for each point.</span>
+        <span class="n">gradient_squared</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;...i,...i-&gt;...&#39;</span><span class="p">,</span> <span class="n">variance_jacobian</span><span class="p">,</span> <span class="n">variance_jacobian</span><span class="p">,</span> <span class="n">optimize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">calculate_jacobian</span><span class="p">:</span>
+            <span class="n">variance_hessian</span> <span class="o">=</span> <span class="n">integrand_model</span><span class="o">.</span><span class="n">posterior_variance_hessian</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+            <span class="c1"># Matrix product of Hessian and Jacobian, for each point.</span>
+            <span class="n">gradient_squared_jacobian</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;...ij,...j-&gt;...i&#39;</span><span class="p">,</span>
+                                                      <span class="n">variance_hessian</span><span class="p">,</span>
+                                                      <span class="n">variance_jacobian</span><span class="p">,</span>
+                                                      <span class="n">optimize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">gradient_squared_jacobian</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">gradient_squared</span><span class="p">,</span> <span class="n">gradient_squared_jacobian</span>
+
+    <span class="k">return</span> <span class="n">f</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Batch Bayesian quadrature  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Ed Wagstaff.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.8.
+    </div>
+  </body>
+</html>

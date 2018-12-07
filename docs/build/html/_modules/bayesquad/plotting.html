@@ -40,44 +40,55 @@
 <span></span><span class="sd">&quot;&quot;&quot;Functions to allow plotting code to be decoupled from the rest of the code.&quot;&quot;&quot;</span>
 
 <span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">wraps</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="k">import</span> <span class="n">MappingProxyType</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Callable</span>
 
 
-<div class="viewcode-block" id="Registry"><a class="viewcode-back" href="../../bayesquad.plotting.html#bayesquad.plotting.Registry">[docs]</a><span class="k">class</span> <span class="nc">Registry</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">_Registry</span><span class="p">:</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_callback_registry</span> <span class="o">=</span> <span class="p">{}</span>
 
-<div class="viewcode-block" id="Registry.update"><a class="viewcode-back" href="../../bayesquad.plotting.html#bayesquad.plotting.Registry.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">trigger_callbacks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">identifier</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_callback_registry</span><span class="p">:</span>
             <span class="k">return</span>
 
         <span class="k">for</span> <span class="n">callback</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_callback_registry</span><span class="p">[</span><span class="n">identifier</span><span class="p">]:</span>
-            <span class="n">callback</span><span class="p">(</span><span class="n">func</span><span class="p">)</span></div>
+            <span class="n">callback</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Registry.add_callback"><a class="viewcode-back" href="../../bayesquad.plotting.html#bayesquad.plotting.Registry.add_callback">[docs]</a>    <span class="k">def</span> <span class="nf">add_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">add_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">identifier</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_callback_registry</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_callback_registry</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_callback_registry</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_callback_registry</span><span class="p">[</span><span class="n">identifier</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">callback</span><span class="p">)</span>
 
 
-<span class="n">_function_registry</span> <span class="o">=</span> <span class="n">Registry</span><span class="p">()</span>
+<span class="n">_function_registry</span> <span class="o">=</span> <span class="n">_Registry</span><span class="p">()</span>
+
+<span class="c1"># Using a mutable object (e.g. an empty dict) as a default parameter can lead to undesirable behaviour, so we use this</span>
+<span class="c1"># read-only proxy.</span>
+<span class="c1">#</span>
+<span class="c1"># See:</span>
+<span class="c1">#   The problem: https://stackoverflow.com/q/1132941</span>
+<span class="c1">#   A solution:  https://stackoverflow.com/a/30638022</span>
+<span class="n">_EMPTY</span> <span class="o">=</span> <span class="n">MappingProxyType</span><span class="p">({})</span>
 
 
-<div class="viewcode-block" id="plottable"><a class="viewcode-back" href="../../bayesquad.plotting.html#bayesquad.plotting.plottable">[docs]</a><span class="k">def</span> <span class="nf">plottable</span><span class="p">(</span><span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">actual_decorator</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>
-        <span class="n">_function_registry</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">func</span>
-    <span class="k">return</span> <span class="n">actual_decorator</span></div>
-
-
-<div class="viewcode-block" id="returns_plottable"><a class="viewcode-back" href="../../bayesquad.plotting.html#bayesquad.plotting.returns_plottable">[docs]</a><span class="k">def</span> <span class="nf">returns_plottable</span><span class="p">(</span><span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">actual_decorator</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]):</span>
+<div class="viewcode-block" id="plottable"><a class="viewcode-back" href="../../bayesquad.plotting.html#bayesquad.plotting.plottable">[docs]</a><span class="k">def</span> <span class="nf">plottable</span><span class="p">(</span><span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">default_plotting_parameters</span><span class="o">=</span><span class="n">_EMPTY</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>
         <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
-        <span class="k">def</span> <span class="nf">transformed_function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">plottable</span><span class="p">(</span><span class="n">identifier</span><span class="p">)(</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">transformed_function</span>
-    <span class="k">return</span> <span class="n">actual_decorator</span></div>
+        <span class="k">def</span> <span class="nf">func_for_plotting</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="c1"># Merge default_plotting_parameters into kwargs</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">default_plotting_parameters</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">}</span>
+            <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">_function_registry</span><span class="o">.</span><span class="n">trigger_callbacks</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">func_for_plotting</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">func</span>
+    <span class="k">return</span> <span class="n">decorator</span></div>
+
+
+<div class="viewcode-block" id="register_as_plottable"><a class="viewcode-back" href="../../bayesquad.plotting.html#bayesquad.plotting.register_as_plottable">[docs]</a><span class="k">def</span> <span class="nf">register_as_plottable</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">default_plotting_parameters</span><span class="o">=</span><span class="n">_EMPTY</span><span class="p">):</span>
+    <span class="n">plottable</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">default_plotting_parameters</span><span class="o">=</span><span class="n">default_plotting_parameters</span><span class="p">)(</span><span class="n">func</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="add_callback"><a class="viewcode-back" href="../../bayesquad.plotting.html#bayesquad.plotting.add_callback">[docs]</a><span class="k">def</span> <span class="nf">add_callback</span><span class="p">(</span><span class="n">identifier</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>

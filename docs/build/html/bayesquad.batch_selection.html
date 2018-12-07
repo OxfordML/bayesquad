@@ -53,6 +53,8 @@
 <dt>The method by which to compute the new batch. Currently supported methods are:</dt>
 <dd><ul class="first last">
 <li>”Local Penalisation”</li>
+<li>”Kriging Believer”</li>
+<li>”Kriging Optimist”</li>
 </ul>
 </dd>
 </dl>
@@ -68,38 +70,6 @@
 </tr>
 </tbody>
 </table>
-</dd></dl>
-
-<dl class="function">
-<dt id="bayesquad.batch_selection.select_local_penalisation_batch">
-<code class="descclassname">bayesquad.batch_selection.</code><code class="descname">select_local_penalisation_batch</code><span class="sig-paren">(</span><em>integrand_model: bayesquad.quadrature.IntegrandModel</em>, <em>batch_size: int</em><span class="sig-paren">)</span> &#x2192; List[numpy.ndarray]<a class="reference internal" href="_modules/bayesquad/batch_selection.html#select_local_penalisation_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.batch_selection.select_local_penalisation_batch" title="Permalink to this definition">¶</a></dt>
-<dd><p>Select a batch of points based on a local penalisation method.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>integrand_model</strong> – The model with which we wish to perform Bayesian quadrature.</li>
-<li><strong>batch_size</strong> – The number of points to return in the new batch.</li>
-</ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">A list of arrays. Each array is a point of the new batch.</p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">list[ndarray]</p>
-</td>
-</tr>
-</tbody>
-</table>
-<p class="rubric">Notes</p>
-<p>In this method, we sequentially select batch points by maximising an acquisition function (currently, this is fixed
-to be the posterior variance of the integrand). In order to avoid repeatedly selecting the same point (or very
-nearby points) repeatedly, we update the acquisition function after selecting each point to penalise that point and
-a region around it. In the method used here, we first find the maximal gradient of the acquisition function, and
-then take the penalised function to be the minimum of the original function and a cone with half of this maximal
-gradient around the selected point. We choose half the gradient since the true function must have zero gradient
-at the selected point and at the nearest maximum, so the average gradient here will not be as large as the maximum.</p>
 </dd></dl>
 
 </div>

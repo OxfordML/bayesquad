@@ -80,8 +80,14 @@
 </dd></dl>
 
 <dl class="method">
+<dt id="bayesquad.priors.Gaussian.logpdf">
+<code class="descname">logpdf</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/priors.html#Gaussian.logpdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Gaussian.logpdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>See <a class="reference internal" href="#bayesquad.priors.Prior.logpdf" title="bayesquad.priors.Prior.logpdf"><code class="xref py py-func docutils literal notranslate"><span class="pre">logpdf()</span></code></a></p>
+</dd></dl>
+
+<dl class="method">
 <dt id="bayesquad.priors.Gaussian.sample">
-<code class="descname">sample</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/priors.html#Gaussian.sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Gaussian.sample" title="Permalink to this definition">¶</a></dt>
+<code class="descname">sample</code><span class="sig-paren">(</span><em>num_points: int = 1</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/priors.html#Gaussian.sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Gaussian.sample" title="Permalink to this definition">¶</a></dt>
 <dd><p>See <a class="reference internal" href="#bayesquad.priors.Prior.sample" title="bayesquad.priors.Prior.sample"><code class="xref py py-func docutils literal notranslate"><span class="pre">sample()</span></code></a></p>
 </dd></dl>
 
@@ -95,7 +101,7 @@
 <dl class="method">
 <dt id="bayesquad.priors.Prior.gradient">
 <code class="descname">gradient</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/bayesquad/priors.html#Prior.gradient"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Prior.gradient" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute the jacobian and hessian of the prior’s pdf at the given set of points.</p>
+<dd><p>Compute the Jacobian and Hessian of the prior’s pdf at the given set of points.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -103,7 +109,7 @@
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – A 2D array of the points at which to evaluate the derivatives, with shape (num_points, num_dimensions).</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><ul class="simple">
-<li><em>jacobian</em> – A 2D array of shape (num_points, num_dimensions), containing the value of the jacobian at each point.</li>
+<li><em>jacobian</em> – A 2D array of shape (num_points, num_dimensions), containing the value of the Jacobian at each point.</li>
 <li><em>hessian</em> – A 3D array of shape (num_points, num_dimensions, num_dimensions), whose (i, j, k)-th element is the
 (j, k)-th mixed partial derivative of the pdf at the i-th point of <cite>x</cite>.</li>
 </ul>
@@ -114,14 +120,32 @@
 </dd></dl>
 
 <dl class="method">
-<dt id="bayesquad.priors.Prior.sample">
-<code class="descname">sample</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/priors.html#Prior.sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Prior.sample" title="Permalink to this definition">¶</a></dt>
-<dd><p>Sample a point from the prior.</p>
+<dt id="bayesquad.priors.Prior.logpdf">
+<code class="descname">logpdf</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/priors.html#Prior.logpdf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Prior.logpdf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate the prior’s log pdf at the given set of points.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">A sample from the prior, as a 1D array of shape (num_dimensions).</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – An array of shape (num_points, num_dimensions).</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A 1D array of shape (num_points).</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">ndarray</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayesquad.priors.Prior.sample">
+<code class="descname">sample</code><span class="sig-paren">(</span><em>num_points: int = 1</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/priors.html#Prior.sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.priors.Prior.sample" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sample <cite>num_points</cite> points independently from the prior.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><cite>num_points</cite> samples from the prior, as a 2D array of shape (num_points, num_dimensions).</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">ndarray</td>
 </tr>

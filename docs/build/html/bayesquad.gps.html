@@ -58,7 +58,7 @@ through to the wrapped GPy GP instance.</p>
 </dl>
 <p>This is a performance optimisation to prevent duplication of work (e.g. a <a class="reference internal" href="#bayesquad.gps.WarpedGP" title="bayesquad.gps.WarpedGP"><code class="xref py py-class docutils literal notranslate"><span class="pre">WarpedGP</span></code></a> may need to call
 posterior_mean_and_variance to compute its own posterior mean, and then immediately do so again to compute its
-posterior jacobians). The cache is cleared whenever the underlying GP is modified (this is implemented using the
+posterior Jacobians). The cache is cleared whenever the underlying GP is modified (this is implemented using the
 observer mechanism provided by GPy). This should mean that a cache hit will only occur if the result of performing
 the computation again would be exactly the same, but if necessary (e.g. if <cite>update_model</cite> has been disabled on the
 underlying GPy <cite>GP</cite>), it is possible to clear the cache manually by calling the method <code class="xref py py-func docutils literal notranslate"><span class="pre">_clear_cache()</span></code> on an
@@ -72,8 +72,8 @@ instance of this class.</p>
 <dl class="method">
 <dt id="bayesquad.gps.GP.posterior_hessians">
 <code class="descname">posterior_hessians</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/bayesquad/gps.html#GP.posterior_hessians"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.GP.posterior_hessians" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the hessian of the posterior mean and the hessian of the posterior variance.</p>
-<p>Given a set of points, return the hessian of the posterior mean and the hessian of the posterior variance at
+<dd><p>Get the Hessian of the posterior mean and the Hessian of the posterior variance.</p>
+<p>Given a set of points, return the Hessian of the posterior mean and the Hessian of the posterior variance at
 each point.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -99,7 +99,7 @@ painful.</p>
 <p>In the following:</p>
 <blockquote>
 <div><ul class="simple">
-<li><span class="math notranslate nohighlight">\(X_*\)</span> is the set of points at which to evaluate the hessians (i.e. the input to this method). In the
+<li><span class="math notranslate nohighlight">\(X_*\)</span> is the set of points at which to evaluate the Hessians (i.e. the input to this method). In the
 code, this is <cite>x</cite>.</li>
 <li><span class="math notranslate nohighlight">\(D = \{ X_D, Y_D \}\)</span> is our GP’s data (with <span class="math notranslate nohighlight">\(X_D\)</span> the locations of function evaluations, and
 <span class="math notranslate nohighlight">\(Y_D\)</span> the values of the function evaluations). In the code, these are <cite>X_D</cite> and <cite>Y_D</cite></li>
@@ -115,23 +115,23 @@ for <span class="math notranslate nohighlight">\(x_i \in X_*, x_j \in X_D\)</spa
 <li><span class="math notranslate nohighlight">\(V(X_*)\)</span> is the posterior variance at <span class="math notranslate nohighlight">\(X_*\)</span>, which is a vector of length <span class="math notranslate nohighlight">\(n\)</span>.</li>
 </ul>
 </div></blockquote>
-<p>The hessians we return depend on the jacobian and hessian of <span class="math notranslate nohighlight">\(K_*\)</span>. Since <span class="math notranslate nohighlight">\(K_*\)</span> is a matrix, the
-jacobian is a 3D tensor, and the hessian is a 4D tensor. Writing <span class="math notranslate nohighlight">\(J\)</span> for the jacobian and <span class="math notranslate nohighlight">\(H\)</span> for
-the hessian, we have:</p>
+<p>The Hessians we return depend on the Jacobian and Hessian of <span class="math notranslate nohighlight">\(K_*\)</span>. Since <span class="math notranslate nohighlight">\(K_*\)</span> is a matrix, the
+Jacobian is a 3D tensor, and the Hessian is a 4D tensor. Writing <span class="math notranslate nohighlight">\(J\)</span> for the Jacobian and <span class="math notranslate nohighlight">\(H\)</span> for
+the Hessian, we have:</p>
 <div class="math notranslate nohighlight">
 \[ \begin{align}\begin{aligned}\begin{split}J_{ijk}  &amp; = &amp; \frac{\partial (K_*)_{ij}}{\partial x_k} \\
          &amp; = &amp; \frac{\partial K((X_*)_i, (X_D)_j)}{\partial x_k}\end{split}\\\begin{split}H_{ijkl} &amp; = &amp; \frac{\partial^2 (K_*)_{ij}}{\partial x_k \partial x_l} \\
          &amp; = &amp; \frac{\partial^2 K((X_*)_i, (X_D)_j)}{\partial x_k \partial x_l} \\\end{split}\end{aligned}\end{align} \]</div>
 <p>In the code, <span class="math notranslate nohighlight">\(J\)</span> is <cite>kernel_jacobian</cite>, and <span class="math notranslate nohighlight">\(H\)</span> is <cite>kernel_hessian</cite>. These have shape
 (<span class="math notranslate nohighlight">\(n, N, d\)</span>) and (<span class="math notranslate nohighlight">\(n, N, d, d\)</span>) respectively.</p>
-<p>The hessian of the mean is reasonably straightforward. We have:</p>
+<p>The Hessian of the mean is reasonably straightforward. We have:</p>
 <div class="math notranslate nohighlight">
 \[\begin{split}m(X_*)   &amp; = &amp; K_* K_D^{-1} Y_D \\
 m(X_*)_i &amp; = &amp; (K_*)_{ij} (K_D^{-1})_{jk} (Y_D)_k \\
 \frac{\partial^2 m(X_*)_i}{\partial x_k \partial x_l}
          &amp; = &amp;
 H_{ijkl} (K_D^{-1})_{jm} (Y_D)_m \\\end{split}\]</div>
-<p>The hessian of the variance is more complicated. It is the difference of a data-independent diagonal part,
+<p>The Hessian of the variance is more complicated. It is the difference of a data-independent diagonal part,
 <span class="math notranslate nohighlight">\(P\)</span>, and a data-dependent part, <span class="math notranslate nohighlight">\(Q\)</span>, as follows:</p>
 <div class="math notranslate nohighlight">
 \[\begin{split}V(X_*)_i  &amp; = &amp; K((X_*)_i, (X_*)_i) - (K_*)_{ij} (K_D^{-1})_{jk} (K_*)_{ik} \\
@@ -147,19 +147,19 @@ Q_{ijk}  &amp; = &amp; \hat{Q}_{ijk} + \hat{Q}_{ikj} \\
 <dl class="method">
 <dt id="bayesquad.gps.GP.posterior_jacobians">
 <code class="descname">posterior_jacobians</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span> &#x2192; Tuple[numpy.ndarray, numpy.ndarray]<a class="reference internal" href="_modules/bayesquad/gps.html#GP.posterior_jacobians"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.GP.posterior_jacobians" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the jacobian of the posterior mean and the jacobian of the posterior variance.</p>
+<dd><p>Get the Jacobian of the posterior mean and the Jacobian of the posterior variance.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – The point(s) at which to evaluate the posterior jacobians. A 2D array of shape (num_points, num_dimensions),
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – The point(s) at which to evaluate the posterior Jacobians. A 2D array of shape (num_points, num_dimensions),
 or a 1D array of shape (num_dimensions).</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><ul class="simple">
 <li><strong>mean_jacobian</strong> (<em>ndarray</em>) – An array of the same shape as the input. The <span class="math notranslate nohighlight">\((i, j)\)</span>-th element is the <span class="math notranslate nohighlight">\(j\)</span>-th component of the
-jacobian of the posterior mean at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</li>
+Jacobian of the posterior mean at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</li>
 <li><strong>variance_jacobian</strong> (<em>ndarray</em>) – An array of the same shape as the input. The <span class="math notranslate nohighlight">\((i, j)\)</span>-th element is the <span class="math notranslate nohighlight">\(j\)</span>-th component of the
-jacobian of the posterior variance at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</li>
+Jacobian of the posterior variance at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</li>
 </ul>
 </td>
 </tr>
@@ -206,7 +206,7 @@ element is the posterior variance at the <span class="math notranslate nohighlig
 
 <dl class="method">
 <dt id="bayesquad.gps.GP.update">
-<code class="descname">update</code><span class="sig-paren">(</span><em>x: numpy.ndarray, y: Union[numpy.ndarray, float]</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/gps.html#GP.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.GP.update" title="Permalink to this definition">¶</a></dt>
+<code class="descname">update</code><span class="sig-paren">(</span><em>x: numpy.ndarray, y: Union[numpy.ndarray, float]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/bayesquad/gps.html#GP.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.GP.update" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add new data to the GP.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -265,12 +265,12 @@ element is the posterior variance at the <span class="math notranslate nohighlig
 <dl class="method">
 <dt id="bayesquad.gps.WarpedGP.posterior_variance_hessian">
 <code class="descname">posterior_variance_hessian</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/gps.html#WarpedGP.posterior_variance_hessian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WarpedGP.posterior_variance_hessian" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the hessian of the posterior variance.</p>
+<dd><p>Get the Hessian of the posterior variance.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – The point(s) at which to evaluate the hessian. A 2D array of shape (num_points, num_dimensions), or a 1D
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – The point(s) at which to evaluate the Hessian. A 2D array of shape (num_points, num_dimensions), or a 1D
 array of shape (num_dimensions).</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>hessian</strong> – A 3D array of shape (num_points, num_dimensions, num_dimensions) if the input was 2D, or a 2D array of shape
@@ -286,17 +286,17 @@ array of shape (num_dimensions).</td>
 <dl class="method">
 <dt id="bayesquad.gps.WarpedGP.posterior_variance_jacobian">
 <code class="descname">posterior_variance_jacobian</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/gps.html#WarpedGP.posterior_variance_jacobian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WarpedGP.posterior_variance_jacobian" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the jacobian of the posterior variance.</p>
+<dd><p>Get the Jacobian of the posterior variance.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – The point(s) at which to evaluate the jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>x</strong> – The point(s) at which to evaluate the Jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D
 array of shape (num_dimensions).</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>jacobian</strong> – A 2D array of shape (num_points, num_dimensions) if the input was 2D, or a 1D array of shape
 (num_dimensions) if the input was 1D. The <span class="math notranslate nohighlight">\((i, j)\)</span>-th element is the <span class="math notranslate nohighlight">\(j\)</span>-th component of the
-jacobian of the posterior variance at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</td>
+Jacobian of the posterior variance at the <span class="math notranslate nohighlight">\(i\)</span>-th point of <cite>x</cite>.</td>
 </tr>
 <tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">ndarray</td>
 </tr>
@@ -305,8 +305,32 @@ jacobian of the posterior variance at the <span class="math notranslate nohighli
 </dd></dl>
 
 <dl class="method">
+<dt id="bayesquad.gps.WarpedGP.remove">
+<code class="descname">remove</code><span class="sig-paren">(</span><em>x: Union[numpy.ndarray, List[numpy.ndarray]], y: Union[numpy.ndarray, List[numpy.ndarray]]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/bayesquad/gps.html#WarpedGP.remove"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WarpedGP.remove" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove data from the GP.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>x</strong> – A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions), or a list of such
+arrays.</li>
+<li><strong>y</strong> – A 1D array of shape (num_points), or a list of such arrays. If <cite>x</cite> is 1D, this may also be a 0D array or
+float. Must be of the same type as <cite>x</cite>.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last"><code class="xref py py-exc docutils literal notranslate"><span class="pre">ValueError</span></code> – If the number of points in <cite>x</cite> does not equal the number of points in <cite>y</cite>.
+If <cite>x</cite> is an array and <cite>y</cite> is a list, or vice versa.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
 <dt id="bayesquad.gps.WarpedGP.update">
-<code class="descname">update</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em>, <em>y: numpy.ndarray</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/gps.html#WarpedGP.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WarpedGP.update" title="Permalink to this definition">¶</a></dt>
+<code class="descname">update</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em>, <em>y: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/bayesquad/gps.html#WarpedGP.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WarpedGP.update" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add new data to the GP.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -314,7 +338,7 @@ jacobian of the posterior variance at the <span class="math notranslate nohighli
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>x</strong> – A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions).</li>
-<li><strong>y</strong> – A 1D array of shape (num_points). If X is 1D, this may also be a 0D array or float.</li>
+<li><strong>y</strong> – A 1D array of shape (num_points). If <cite>x</cite> is 1D, this may also be a 0D array or float.</li>
 </ul>
 </td>
 </tr>
@@ -355,7 +379,7 @@ details on arguments and return values.</p>
 <dl class="method">
 <dt id="bayesquad.gps.WsabiLGP.posterior_variance_hessian">
 <code class="descname">posterior_variance_hessian</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/gps.html#WsabiLGP.posterior_variance_hessian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WsabiLGP.posterior_variance_hessian" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the hessian of the posterior variance.</p>
+<dd><p>Get the Hessian of the posterior variance.</p>
 <p>Overrides <a class="reference internal" href="#bayesquad.gps.WarpedGP.posterior_variance_hessian" title="bayesquad.gps.WarpedGP.posterior_variance_hessian"><code class="xref py py-func docutils literal notranslate"><span class="pre">posterior_variance_hessian()</span></code></a> - please see that method’s documentation for further
 details on arguments and return values.</p>
 <p class="rubric">Notes</p>
@@ -374,7 +398,7 @@ details on arguments and return values.</p>
 <dl class="method">
 <dt id="bayesquad.gps.WsabiLGP.posterior_variance_jacobian">
 <code class="descname">posterior_variance_jacobian</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; numpy.ndarray<a class="reference internal" href="_modules/bayesquad/gps.html#WsabiLGP.posterior_variance_jacobian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WsabiLGP.posterior_variance_jacobian" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the jacobian of the posterior variance.</p>
+<dd><p>Get the Jacobian of the posterior variance.</p>
 <p>Overrides <a class="reference internal" href="#bayesquad.gps.WarpedGP.posterior_variance_jacobian" title="bayesquad.gps.WarpedGP.posterior_variance_jacobian"><code class="xref py py-func docutils literal notranslate"><span class="pre">posterior_variance_jacobian()</span></code></a> - please see that method’s documentation for further
 details on arguments and return values.</p>
 <p class="rubric">Notes</p>
@@ -391,8 +415,16 @@ details on arguments and return values.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="bayesquad.gps.WsabiLGP.remove">
+<code class="descname">remove</code><span class="sig-paren">(</span><em>x: Union[numpy.ndarray, List[numpy.ndarray]], y: Union[numpy.ndarray, List[numpy.ndarray]]</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/bayesquad/gps.html#WsabiLGP.remove"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WsabiLGP.remove" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove data from the GP. If necessary, also update the parameter alpha to a value consistent with the
+remaining data.</p>
+<p>Overrides <a class="reference internal" href="#bayesquad.gps.WarpedGP.remove" title="bayesquad.gps.WarpedGP.remove"><code class="xref py py-func docutils literal notranslate"><span class="pre">remove()</span></code></a> - please see that method’s documentation for further details.</p>
+</dd></dl>
+
+<dl class="method">
 <dt id="bayesquad.gps.WsabiLGP.update">
-<code class="descname">update</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em>, <em>y: numpy.ndarray</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayesquad/gps.html#WsabiLGP.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WsabiLGP.update" title="Permalink to this definition">¶</a></dt>
+<code class="descname">update</code><span class="sig-paren">(</span><em>x: numpy.ndarray</em>, <em>y: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/bayesquad/gps.html#WsabiLGP.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayesquad.gps.WsabiLGP.update" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add new data to the GP. If necessary, this will also update the parameter alpha to a value consistent with
 the new data.</p>
 <p>Overrides <a class="reference internal" href="#bayesquad.gps.WarpedGP.update" title="bayesquad.gps.WarpedGP.update"><code class="xref py py-func docutils literal notranslate"><span class="pre">update()</span></code></a> - please see that method’s documentation for further details on arguments and

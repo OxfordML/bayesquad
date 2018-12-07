@@ -39,19 +39,19 @@
   <h1>Source code for bayesquad.gps</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Provides classes for Gaussian Process models, including models where a warping of the output space has been applied.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-
-<span class="kn">from</span> <span class="nn">abc</span> <span class="k">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="k">import</span> <span class="n">chain</span>
 
 <span class="kn">import</span> <span class="nn">GPy.core.gp</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="k">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span> <span class="nn">numpy</span> <span class="k">import</span> <span class="n">ndarray</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Iterator</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">kernel_gradients</span>
-<span class="kn">from</span> <span class="nn">._util</span> <span class="k">import</span> <span class="n">validate_dimensions</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">_kernel_gradients</span>
 <span class="kn">from</span> <span class="nn">._cache</span> <span class="k">import</span> <span class="n">last_value_cache</span><span class="p">,</span> <span class="n">clear_last_value_caches</span>
-<span class="kn">from</span> <span class="nn">.decorators</span> <span class="k">import</span> <span class="n">flexible_array_dimensions</span>
-<span class="kn">from</span> <span class="nn">.maths_helpers</span> <span class="k">import</span> <span class="n">jacobian_of_f_squared_times_g</span><span class="p">,</span> <span class="n">hessian_of_f_squared_times_g</span>
+<span class="kn">from</span> <span class="nn">._util</span> <span class="k">import</span> <span class="n">validate_dimensions</span>
+<span class="kn">from</span> <span class="nn">._decorators</span> <span class="k">import</span> <span class="n">flexible_array_dimensions</span>
+<span class="kn">from</span> <span class="nn">._maths_helpers</span> <span class="k">import</span> <span class="n">jacobian_of_f_squared_times_g</span><span class="p">,</span> <span class="n">hessian_of_f_squared_times_g</span>
 
 
 <div class="viewcode-block" id="GP"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP">[docs]</a><span class="k">class</span> <span class="nc">GP</span><span class="p">:</span>
@@ -69,7 +69,7 @@
 
 <span class="sd">    This is a performance optimisation to prevent duplication of work (e.g. a :class:`~WarpedGP` may need to call</span>
 <span class="sd">    posterior_mean_and_variance to compute its own posterior mean, and then immediately do so again to compute its</span>
-<span class="sd">    posterior jacobians). The cache is cleared whenever the underlying GP is modified (this is implemented using the</span>
+<span class="sd">    posterior Jacobians). The cache is cleared whenever the underlying GP is modified (this is implemented using the</span>
 <span class="sd">    observer mechanism provided by GPy). This should mean that a cache hit will only occur if the result of performing</span>
 <span class="sd">    the computation again would be exactly the same, but if necessary (e.g. if `update_model` has been disabled on the</span>
 <span class="sd">    underlying GPy `GP`), it is possible to clear the cache manually by calling the method :func:`_clear_cache` on an</span>
@@ -81,7 +81,7 @@
 <span class="sd">    --------</span>
 <span class="sd">    :class:`GPy.core.gp.GP`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gpy_gp</span><span class="p">:</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">gp</span><span class="o">.</span><span class="n">GP</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gpy_gp</span><span class="p">:</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">gp</span><span class="o">.</span><span class="n">GP</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_gpy_gp</span> <span class="o">=</span> <span class="n">gpy_gp</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span> <span class="o">=</span> <span class="n">gpy_gp</span><span class="o">.</span><span class="n">input_dim</span>
 
@@ -93,7 +93,7 @@
         <span class="c1"># return gp._gpy_gp.foo.</span>
         <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gpy_gp</span><span class="p">,</span> <span class="n">item</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_clear_cache</span><span class="p">()</span>
 
 <div class="viewcode-block" id="GP.posterior_mean_and_variance"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP.posterior_mean_and_variance">[docs]</a>    <span class="nd">@last_value_cache</span>
@@ -129,22 +129,22 @@
 <div class="viewcode-block" id="GP.posterior_jacobians"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP.posterior_jacobians">[docs]</a>    <span class="nd">@last_value_cache</span>
     <span class="nd">@flexible_array_dimensions</span>
     <span class="k">def</span> <span class="nf">posterior_jacobians</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Get the jacobian of the posterior mean and the jacobian of the posterior variance.</span>
+        <span class="sd">&quot;&quot;&quot;Get the Jacobian of the posterior mean and the Jacobian of the posterior variance.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x</span>
-<span class="sd">            The point(s) at which to evaluate the posterior jacobians. A 2D array of shape (num_points, num_dimensions),</span>
+<span class="sd">            The point(s) at which to evaluate the posterior Jacobians. A 2D array of shape (num_points, num_dimensions),</span>
 <span class="sd">            or a 1D array of shape (num_dimensions).</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        mean_jacobian : ndarray</span>
 <span class="sd">            An array of the same shape as the input. The :math:`(i, j)`-th element is the :math:`j`-th component of the</span>
-<span class="sd">            jacobian of the posterior mean at the :math:`i`-th point of `x`.</span>
+<span class="sd">            Jacobian of the posterior mean at the :math:`i`-th point of `x`.</span>
 <span class="sd">        variance_jacobian : ndarray</span>
 <span class="sd">            An array of the same shape as the input. The :math:`(i, j)`-th element is the :math:`j`-th component of the</span>
-<span class="sd">            jacobian of the posterior variance at the :math:`i`-th point of `x`.</span>
+<span class="sd">            Jacobian of the posterior variance at the :math:`i`-th point of `x`.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -159,9 +159,9 @@
 <div class="viewcode-block" id="GP.posterior_hessians"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP.posterior_hessians">[docs]</a>    <span class="nd">@last_value_cache</span>
     <span class="nd">@flexible_array_dimensions</span>
     <span class="k">def</span> <span class="nf">posterior_hessians</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Get the hessian of the posterior mean and the hessian of the posterior variance.</span>
+        <span class="sd">&quot;&quot;&quot;Get the Hessian of the posterior mean and the Hessian of the posterior variance.</span>
 
-<span class="sd">        Given a set of points, return the hessian of the posterior mean and the hessian of the posterior variance at</span>
+<span class="sd">        Given a set of points, return the Hessian of the posterior mean and the Hessian of the posterior variance at</span>
 <span class="sd">        each point.</span>
 
 <span class="sd">        Parameters</span>
@@ -187,7 +187,7 @@
 
 <span class="sd">        In the following:</span>
 
-<span class="sd">            - :math:`X_*` is the set of points at which to evaluate the hessians (i.e. the input to this method). In the</span>
+<span class="sd">            - :math:`X_*` is the set of points at which to evaluate the Hessians (i.e. the input to this method). In the</span>
 <span class="sd">              code, this is `x`.</span>
 <span class="sd">            - :math:`D = \{ X_D, Y_D \}` is our GP&#39;s data (with :math:`X_D` the locations of function evaluations, and</span>
 <span class="sd">              :math:`Y_D` the values of the function evaluations). In the code, these are `X_D` and `Y_D`</span>
@@ -202,9 +202,9 @@
 <span class="sd">            - :math:`m(X_*)` is the posterior mean at :math:`X_*`, which is a vector of length :math:`n`.</span>
 <span class="sd">            - :math:`V(X_*)` is the posterior variance at :math:`X_*`, which is a vector of length :math:`n`.</span>
 
-<span class="sd">        The hessians we return depend on the jacobian and hessian of :math:`K_*`. Since :math:`K_*` is a matrix, the</span>
-<span class="sd">        jacobian is a 3D tensor, and the hessian is a 4D tensor. Writing :math:`J` for the jacobian and :math:`H` for</span>
-<span class="sd">        the hessian, we have:</span>
+<span class="sd">        The Hessians we return depend on the Jacobian and Hessian of :math:`K_*`. Since :math:`K_*` is a matrix, the</span>
+<span class="sd">        Jacobian is a 3D tensor, and the Hessian is a 4D tensor. Writing :math:`J` for the Jacobian and :math:`H` for</span>
+<span class="sd">        the Hessian, we have:</span>
 
 <span class="sd">        .. math::</span>
 
@@ -217,7 +217,7 @@
 <span class="sd">        In the code, :math:`J` is `kernel_jacobian`, and :math:`H` is `kernel_hessian`. These have shape</span>
 <span class="sd">        (:math:`n, N, d`) and (:math:`n, N, d, d`) respectively.</span>
 
-<span class="sd">        The hessian of the mean is reasonably straightforward. We have:</span>
+<span class="sd">        The Hessian of the mean is reasonably straightforward. We have:</span>
 
 <span class="sd">        .. math::</span>
 
@@ -227,7 +227,7 @@
 <span class="sd">                     &amp; = &amp;</span>
 <span class="sd">            H_{ijkl} (K_D^{-1})_{jm} (Y_D)_m \\\\</span>
 
-<span class="sd">        The hessian of the variance is more complicated. It is the difference of a data-independent diagonal part,</span>
+<span class="sd">        The Hessian of the variance is more complicated. It is the difference of a data-independent diagonal part,</span>
 <span class="sd">        :math:`P`, and a data-dependent part, :math:`Q`, as follows:</span>
 
 <span class="sd">        .. math::</span>
@@ -263,7 +263,7 @@
 
         <span class="k">return</span> <span class="n">mean_hessian</span><span class="p">,</span> <span class="n">variance_hessian</span></div>
 
-<div class="viewcode-block" id="GP.update"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]):</span>
+<div class="viewcode-block" id="GP.update"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.GP.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Add new data to the GP.</span>
 
 <span class="sd">        Parameters</span>
@@ -285,19 +285,19 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">set_XY</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_kernel_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">kernel_gradients</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_kernel_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_kernel_gradients</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_kernel_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">kernel_gradients</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_kernel_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_kernel_gradients</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_diagonal_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">kernel_gradients</span><span class="o">.</span><span class="n">diagonal_hessian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_diagonal_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_kernel_gradients</span><span class="o">.</span><span class="n">diagonal_hessian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kern</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="c1"># noinspection PyUnusedLocal</span>
     <span class="c1"># This is called with a keyword argument &quot;which&quot; by GPy when the underlying GP is updated. We allow this to be</span>
     <span class="c1"># called with any set of arguments, but ignore them all.</span>
-    <span class="k">def</span> <span class="nf">_clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">clear_last_value_caches</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
 
 
@@ -307,7 +307,7 @@
 <span class="sd">    Models of this type will make use of an underlying Gaussian Process model, and work with its outputs to produce a</span>
 <span class="sd">    warped model. Instances of this class each have an instance of `GP` for this underlying model.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gp</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">GP</span><span class="p">,</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">gp</span><span class="o">.</span><span class="n">GP</span><span class="p">]):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gp</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">GP</span><span class="p">,</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">gp</span><span class="o">.</span><span class="n">GP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Create a Warped GP from a GP.</span>
 
 <span class="sd">        Parameters</span>
@@ -350,12 +350,12 @@
 
 <div class="viewcode-block" id="WarpedGP.posterior_variance_jacobian"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WarpedGP.posterior_variance_jacobian">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">posterior_variance_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the jacobian of the posterior variance.</span>
+        <span class="sd">&quot;&quot;&quot;Get the Jacobian of the posterior variance.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x</span>
-<span class="sd">            The point(s) at which to evaluate the jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
+<span class="sd">            The point(s) at which to evaluate the Jacobian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
 <span class="sd">            array of shape (num_dimensions).</span>
 
 <span class="sd">        Returns</span>
@@ -363,17 +363,17 @@
 <span class="sd">        jacobian : ndarray</span>
 <span class="sd">            A 2D array of shape (num_points, num_dimensions) if the input was 2D, or a 1D array of shape</span>
 <span class="sd">            (num_dimensions) if the input was 1D. The :math:`(i, j)`-th element is the :math:`j`-th component of the</span>
-<span class="sd">            jacobian of the posterior variance at the :math:`i`-th point of `x`.</span>
+<span class="sd">            Jacobian of the posterior variance at the :math:`i`-th point of `x`.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="WarpedGP.posterior_variance_hessian"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WarpedGP.posterior_variance_hessian">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">posterior_variance_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the hessian of the posterior variance.</span>
+        <span class="sd">&quot;&quot;&quot;Get the Hessian of the posterior variance.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x</span>
-<span class="sd">            The point(s) at which to evaluate the hessian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
+<span class="sd">            The point(s) at which to evaluate the Hessian. A 2D array of shape (num_points, num_dimensions), or a 1D</span>
 <span class="sd">            array of shape (num_dimensions).</span>
 
 <span class="sd">        Returns</span>
@@ -385,7 +385,7 @@
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="WarpedGP.update"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WarpedGP.update">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Add new data to the GP.</span>
 
 <span class="sd">        Parameters</span>
@@ -393,12 +393,32 @@
 <span class="sd">        x</span>
 <span class="sd">            A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions).</span>
 <span class="sd">        y</span>
-<span class="sd">            A 1D array of shape (num_points). If X is 1D, this may also be a 0D array or float.</span>
+<span class="sd">            A 1D array of shape (num_points). If `x` is 1D, this may also be a 0D array or float.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
 <span class="sd">            If the number of points in `x` does not equal the number of points in `y`.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="WarpedGP.remove"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WarpedGP.remove">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]],</span> <span class="n">y</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Remove data from the GP.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x</span>
+<span class="sd">            A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions), or a list of such</span>
+<span class="sd">            arrays.</span>
+<span class="sd">        y</span>
+<span class="sd">            A 1D array of shape (num_points), or a list of such arrays. If `x` is 1D, this may also be a 0D array or</span>
+<span class="sd">            float. Must be of the same type as `x`.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the number of points in `x` does not equal the number of points in `y`.</span>
+<span class="sd">            If `x` is an array and `y` is a list, or vice versa.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div></div>
 
 
@@ -416,17 +436,22 @@
 <span class="sd">    .. [1] Gunter, Tom, et al. &quot;Sampling for inference in probabilistic models with fast Bayesian quadrature.&quot;</span>
 <span class="sd">       Advances in neural information processing systems. 2014.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_ALPHA_FACTOR</span> <span class="o">=</span> <span class="mf">0.8</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gp</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">GP</span><span class="p">,</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">GP</span><span class="p">]):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gp</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">GP</span><span class="p">,</span> <span class="n">GPy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">GP</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">gp</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">=</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">gp</span><span class="o">.</span><span class="n">Y</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">=</span> <span class="mi">0</span>
 
         <span class="c1"># We need to keep track of the original values of y, since whenever alpha changes, we&#39;ll need to apply the new</span>
-        <span class="c1"># transform to the old data. We also keep track of the corresponding values of x separately here, since this</span>
-        <span class="c1"># simplifies some operations.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span> <span class="o">=</span> <span class="p">[</span><span class="n">gp</span><span class="o">.</span><span class="n">Y</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span> <span class="o">=</span> <span class="p">[</span><span class="n">gp</span><span class="o">.</span><span class="n">X</span><span class="p">]</span>
+        <span class="c1"># transform to the old data. We also keep track of the corresponding values of x separately here. We store</span>
+        <span class="c1"># these as a list of individual points so that points can more easily be removed from the GP if necessary (this</span>
+        <span class="c1"># is required for e.g. Kriging Believer).</span>
+        <span class="n">unwarped_Y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unwarp</span><span class="p">(</span><span class="n">gp</span><span class="o">.</span><span class="n">Y</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span> <span class="o">=</span> <span class="n">_split_array_to_list_of_points</span><span class="p">(</span><span class="n">unwarped_Y</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span> <span class="o">=</span> <span class="n">_split_array_to_list_of_points</span><span class="p">(</span><span class="n">gp</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ALPHA_FACTOR</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span><span class="p">)</span>
 
 <div class="viewcode-block" id="WsabiLGP.posterior_mean_and_variance"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.posterior_mean_and_variance">[docs]</a>    <span class="nd">@flexible_array_dimensions</span>
     <span class="k">def</span> <span class="nf">posterior_mean_and_variance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
@@ -444,7 +469,7 @@
 
 <div class="viewcode-block" id="WsabiLGP.posterior_variance_jacobian"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.posterior_variance_jacobian">[docs]</a>    <span class="nd">@flexible_array_dimensions</span>
     <span class="k">def</span> <span class="nf">posterior_variance_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the jacobian of the posterior variance.</span>
+        <span class="sd">&quot;&quot;&quot;Get the Jacobian of the posterior variance.</span>
 
 <span class="sd">        Overrides :func:`~WarpedGP.posterior_variance_jacobian` - please see that method&#39;s documentation for further</span>
 <span class="sd">        details on arguments and return values.</span>
@@ -470,7 +495,7 @@
 
 <div class="viewcode-block" id="WsabiLGP.posterior_variance_hessian"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.posterior_variance_hessian">[docs]</a>    <span class="nd">@flexible_array_dimensions</span>
     <span class="k">def</span> <span class="nf">posterior_variance_hessian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the hessian of the posterior variance.</span>
+        <span class="sd">&quot;&quot;&quot;Get the Hessian of the posterior variance.</span>
 
 <span class="sd">        Overrides :func:`~WarpedGP.posterior_variance_hessian` - please see that method&#39;s documentation for further</span>
 <span class="sd">        details on arguments and return values.</span>
@@ -495,7 +520,7 @@
             <span class="n">f</span><span class="o">=</span><span class="n">gp_mean</span><span class="p">,</span> <span class="n">f_jacobian</span><span class="o">=</span><span class="n">gp_mean_jacobian</span><span class="p">,</span> <span class="n">f_hessian</span><span class="o">=</span><span class="n">gp_mean_hessian</span><span class="p">,</span>
             <span class="n">g</span><span class="o">=</span><span class="n">gp_variance</span><span class="p">,</span> <span class="n">g_jacobian</span><span class="o">=</span><span class="n">gp_variance_jacobian</span><span class="p">,</span> <span class="n">g_hessian</span><span class="o">=</span><span class="n">gp_variance_hessian</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="WsabiLGP.update"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">):</span>
+<div class="viewcode-block" id="WsabiLGP.update"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Add new data to the GP. If necessary, this will also update the parameter alpha to a value consistent with</span>
 <span class="sd">        the new data.</span>
 
@@ -507,10 +532,10 @@
         <span class="c1"># transformation for dealing with the GPy data directly.</span>
         <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">_validate_and_transform_for_gpy_update</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span> <span class="o">+=</span> <span class="n">_split_array_to_list_of_points</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span> <span class="o">+=</span> <span class="n">_split_array_to_list_of_points</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
 
-        <span class="n">new_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="mf">0.8</span> <span class="o">*</span> <span class="n">y</span><span class="p">))</span>
+        <span class="n">new_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ALPHA_FACTOR</span> <span class="o">*</span> <span class="n">y</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">new_min</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_update_alpha_and_reprocess_data</span><span class="p">(</span><span class="n">new_min</span><span class="p">)</span>
@@ -518,8 +543,27 @@
             <span class="n">warped_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warp</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">warped_y</span><span class="p">)</span></div>
 
+<div class="viewcode-block" id="WsabiLGP.remove"><a class="viewcode-back" href="../../bayesquad.gps.html#bayesquad.gps.WsabiLGP.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]],</span> <span class="n">y</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Remove data from the GP. If necessary, also update the parameter alpha to a value consistent with the</span>
+<span class="sd">        remaining data.</span>
+
+<span class="sd">        Overrides :func:`~WarpedGP.remove` - please see that method&#39;s documentation for further details.&quot;&quot;&quot;</span>
+        <span class="c1"># QQ Test cases to write here</span>
+        <span class="c1"># QQ List of 1D, list of 2D, list of mixed 1 and 2D</span>
+        <span class="n">all_data_pairs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span><span class="p">))</span>
+        <span class="n">data_pairs_to_remove</span> <span class="o">=</span> <span class="n">_get_validated_pairs_of_points</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+        <span class="n">_remove_matching_pairs</span><span class="p">(</span><span class="n">all_data_pairs</span><span class="p">,</span> <span class="n">pairs_to_remove</span><span class="o">=</span><span class="n">data_pairs_to_remove</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span> <span class="o">=</span> <span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">all_data_pairs</span><span class="p">))</span>
+
+        <span class="n">alpha</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ALPHA_FACTOR</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_unwarped_Y</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_alpha_and_reprocess_data</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span></div>
+
     <span class="k">def</span> <span class="nf">_warp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_unwarp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">y</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span>
 
     <span class="k">def</span> <span class="nf">_update_alpha_and_reprocess_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">=</span> <span class="n">alpha</span>
@@ -530,6 +574,33 @@
         <span class="n">all_X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_all_X</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_gp</span><span class="o">.</span><span class="n">set_XY</span><span class="p">(</span><span class="n">all_X</span><span class="p">,</span> <span class="n">all_warped_Y</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_validated_pairs_of_points</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]],</span>
+                                   <span class="n">y</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;Given data `x` and `y`, return an iterator over all pairs of points (x_i, y_i). Additionally, ensure that</span>
+<span class="sd">    each x_i, y_i has the right dimensionality to be passed to the underlying GP through `GPy.core.gp.GP.set_XY`.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="n">y</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;x and y must both be arrays, or both be lists of arrays. &quot;</span>
+                         <span class="s2">&quot;Type of x was </span><span class="si">{}</span><span class="s2">, type of y was </span><span class="si">{}</span><span class="s2">.&quot;</span>
+                         <span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">type</span><span class="p">(</span><span class="n">y</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">list</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;x and y must be lists of equal length. x had length </span><span class="si">{}</span><span class="s2">, y had length </span><span class="si">{}</span><span class="s2">.&quot;</span>
+                             <span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)))</span>
+
+        <span class="n">validated_x_and_y</span> <span class="o">=</span> <span class="p">(</span><span class="n">_validate_and_transform_for_gpy_update</span><span class="p">(</span><span class="n">x_input</span><span class="p">,</span> <span class="n">y_input</span><span class="p">)</span>
+                             <span class="k">for</span> <span class="n">x_input</span><span class="p">,</span> <span class="n">y_input</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="n">validated_x</span><span class="p">,</span> <span class="n">validated_y</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">validated_x_and_y</span><span class="p">)</span>
+        <span class="n">validated_x</span><span class="p">,</span> <span class="n">validated_y</span> <span class="o">=</span> \
+            <span class="n">_split_list_of_arrays_to_list_of_points</span><span class="p">(</span><span class="n">validated_x</span><span class="p">),</span> <span class="n">_split_list_of_arrays_to_list_of_points</span><span class="p">(</span><span class="n">validated_y</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">validated_x</span><span class="p">,</span> <span class="n">validated_y</span> <span class="o">=</span> <span class="n">_validate_and_transform_for_gpy_update</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">validated_x</span><span class="p">,</span> <span class="n">validated_y</span> <span class="o">=</span> \
+            <span class="n">_split_array_to_list_of_points</span><span class="p">(</span><span class="n">validated_x</span><span class="p">),</span> <span class="n">_split_array_to_list_of_points</span><span class="p">(</span><span class="n">validated_y</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">zip</span><span class="p">(</span><span class="n">validated_x</span><span class="p">,</span> <span class="n">validated_y</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_validate_and_transform_for_gpy_update</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]:</span>
@@ -549,6 +620,44 @@
                          <span class="s2">&quot;of points in y. x contained </span><span class="si">{}</span><span class="s2"> points, y contained </span><span class="si">{}</span><span class="s2"> points.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x_points</span><span class="p">,</span> <span class="n">y_points</span><span class="p">))</span>
 
     <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span>
+
+
+<span class="k">def</span> <span class="nf">_split_list_of_arrays_to_list_of_points</span><span class="p">(</span><span class="n">arrays</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Given an iterable of arrays, where each array may represent multiple points, return an iterator of arrays</span>
+<span class="sd">    where each array represents a single point.&quot;&quot;&quot;</span>
+    <span class="n">split_arrays</span> <span class="o">=</span> <span class="p">(</span><span class="n">_split_array_to_list_of_points</span><span class="p">(</span><span class="n">array</span><span class="p">)</span> <span class="k">for</span> <span class="n">array</span> <span class="ow">in</span> <span class="n">arrays</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="n">split_arrays</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_split_array_to_list_of_points</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Given an array possibly representing multiple points, return a list of arrays where each array represents a</span>
+<span class="sd">    single point from the input array.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">array</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">array</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_remove_matching_pairs</span><span class="p">(</span><span class="n">pairs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]],</span> <span class="o">*</span><span class="p">,</span>
+                           <span class="n">pairs_to_remove</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Remove any (x, y) pairs from `pairs` which also appear in `pairs_to_remove`. If any pair occurs multiple times in</span>
+<span class="sd">    `pairs`, it will be removed as many times as it appears in `pairs_to_remove`.&quot;&quot;&quot;</span>
+    <span class="n">indices_to_remove</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">remove_x</span><span class="p">,</span> <span class="n">remove_y</span> <span class="ow">in</span> <span class="n">pairs_to_remove</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pairs</span><span class="p">)):</span>
+            <span class="c1"># Don&#39;t try to remove the same pair twice.</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices_to_remove</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">pairs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">remove_x</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">remove_y</span><span class="p">):</span>
+                <span class="n">indices_to_remove</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="k">break</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">indices_to_remove</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">del</span> <span class="n">pairs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
 </pre></div>
 
           </div>

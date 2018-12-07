@@ -1,0 +1,7 @@
+bayesquad.transformations module
+================================
+
+.. automodule:: bayesquad.transformations
+    :members:
+    :undoc-members:
+    :show-inheritance:
