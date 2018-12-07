@@ -7,9 +7,9 @@ from GPy.kern import Kern, RBF
 from multimethod import multimethod
 from numpy import ndarray, newaxis
 
-from .decorators import flexible_array_dimensions
+from ._decorators import flexible_array_dimensions
 from .gps import WarpedGP, WsabiLGP
-from .maths_helpers import jacobian_of_f_squared_times_g, hessian_of_f_squared_times_g
+from ._maths_helpers import jacobian_of_f_squared_times_g, hessian_of_f_squared_times_g
 from .priors import Gaussian, Prior
 
 

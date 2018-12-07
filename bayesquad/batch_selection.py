@@ -8,8 +8,8 @@ import numpy.ma as ma
 from numpy import ndarray
 
 from .acquisition_functions import model_variance, model_variance_norm_of_gradient_squared
-from .optimisation import multi_start_maximise
-from .transformations import log_of_function
+from ._optimisation import multi_start_maximise
+from ._transformations import log_of_function
 from .plotting import plottable
 from .quadrature import IntegrandModel
 

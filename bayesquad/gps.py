@@ -8,11 +8,11 @@ from abc import ABC, abstractmethod
 from numpy import ndarray
 from typing import Tuple, Union, List, Iterable, Iterator
 
-from . import kernel_gradients
+from . import _kernel_gradients
 from ._cache import last_value_cache, clear_last_value_caches
 from ._util import validate_dimensions
-from .decorators import flexible_array_dimensions
-from .maths_helpers import jacobian_of_f_squared_times_g, hessian_of_f_squared_times_g
+from ._decorators import flexible_array_dimensions
+from ._maths_helpers import jacobian_of_f_squared_times_g, hessian_of_f_squared_times_g
 
 
 class GP:
@@ -247,13 +247,13 @@ class GP:
         self.set_XY(X, Y)
 
     def _kernel_jacobian(self, x) -> ndarray:
-        return kernel_gradients.jacobian(self.kern, x, self.X)
+        return _kernel_gradients.jacobian(self.kern, x, self.X)
 
     def _kernel_hessian(self, x) -> ndarray:
-        return kernel_gradients.hessian(self.kern, x, self.X)
+        return _kernel_gradients.hessian(self.kern, x, self.X)
 
     def _diagonal_hessian(self, x) -> ndarray:
-        return kernel_gradients.diagonal_hessian(self.kern, x)
+        return _kernel_gradients.diagonal_hessian(self.kern, x)
 
     # noinspection PyUnusedLocal
     # This is called with a keyword argument "which" by GPy when the underlying GP is updated. We allow this to be
