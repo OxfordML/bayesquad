@@ -509,8 +509,6 @@ class WsabiLGP(WarpedGP):
         remaining data.
 
         Overrides :func:`~WarpedGP.remove` - please see that method's documentation for further details."""
-        # Test cases to write here
-        # List of 1D, list of 2D, list of mixed 1 and 2D
         all_data_pairs = list(zip(self._all_X, self._unwarped_Y))
         data_pairs_to_remove = _get_validated_pairs_of_points(x, y)
 
