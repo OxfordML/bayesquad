@@ -65,7 +65,7 @@ class _BatchSelectionMethod(ABC):
         self._integrand_model = integrand_model
         self._batch: List[ndarray] = []
 
-    def select_batch(self, batch_size) -> List[ndarray]:
+    def select_batch(self, batch_size: int) -> List[ndarray]:
         while len(self._batch) < batch_size:
             acquisition_function = self._get_acquisition_function()
             initial_points = self._select_initial_points()
@@ -192,7 +192,7 @@ class _LocalPenalisation(_BatchSelectionMethod):
         max_gradient_squared = np.exp(log_max_gradient_squared)
         return sqrt(max_gradient_squared)
 
-    def _get_soft_penalised_log_acquisition_function(self, acquisition_function) -> Callable:
+    def _get_soft_penalised_log_acquisition_function(self, acquisition_function: Callable) -> Callable:
         """Create a function which will return the log of a soft minimum of the given acquisition function and the given
         penalisers at any point, or set of points.
 
@@ -245,13 +245,13 @@ class _LocalPenalisation(_BatchSelectionMethod):
         return penalised_acquisition_function
 
     @staticmethod
-    def _get_local_initial_points(central_point, num_points):
+    def _get_local_initial_points(central_point: ndarray, num_points: int):
         """Get a set of points close to a given point."""
         perturbations = 0.01 * np.random.randn(num_points, *central_point.shape)
         return central_point + perturbations
 
     @staticmethod
-    def _cone(centre, gradient):
+    def _cone(centre: ndarray, gradient: float):
         def f(x):
             """Evaluate a cone around the given centre with the given gradient, i.e. a function whose value increases
             linearly with distance from the centre.
