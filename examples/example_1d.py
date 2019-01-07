@@ -1,4 +1,4 @@
-"""Plot bayesian quadrature on a simple 2D test function."""
+"""Plot bayesian quadrature on a simple 1D test function."""
 from typing import Dict, Any
 
 import GPy
@@ -56,17 +56,21 @@ def get_plotting_domain(lower_limit, upper_limit, resolution):
 
 
 figure = plt.figure(figsize=(18, 8))
-axes: Dict[Any, Axes] = {}
+
+axes: Dict[Any, Axes] = {
+    "left": figure.add_subplot(121),
+    "right": figure.add_subplot(122)
+}
+
+for subplot in axes:
+    axes[subplot].set_ylim(-0.1, 1)
+
 PLOTTING_DOMAIN = get_plotting_domain(LOWER_LIMIT, UPPER_LIMIT, PLOTTING_RESOLUTION)
 
 
 def plot_data(data, subplot, title="", color=None):
-    if subplot not in axes:
-        axis = figure.add_subplot(subplot, title=title)
-        axis.set_ylim(-0.1, 1)
-        axes[subplot] = axis
-
     axis = axes[subplot]
+    axis.set_title(title)
 
     return axis.plot(PLOTTING_DOMAIN, data, color=color)
 
@@ -82,7 +86,7 @@ plot_elements = {
 
 def plot_true_function():
     z = true_integrand(PLOTTING_DOMAIN)
-    plot_data(z, 122, "True Integrand")
+    plot_data(z, "right", "True Integrand")
 
 
 def compute_and_plot_integrand_posterior(integrand_model: IntegrandModel):
@@ -90,7 +94,22 @@ def compute_and_plot_integrand_posterior(integrand_model: IntegrandModel):
 
     z = integrand_model.posterior_mean_and_variance(PLOTTING_DOMAIN)[0].T
     posterior_mean = z.T
-    plot_elements["posterior_mean"], = plot_data(z, 121, title="Posterior Mean", color="tab:red")
+    plot_elements["posterior_mean"], = plot_data(z, "left", title="Posterior Mean", color="tab:red")
+
+    integral_mean = integrand_model.integral_mean()
+    axes["left"].text(
+        x=0.5,
+        y=0.95,
+        s="Integral Estimate: {:.4f}".format(integral_mean),
+        verticalalignment="top",
+        size=12,
+        bbox={
+            "facecolor": "white",
+            "edgecolor": "black"
+        }
+    )
+
+    print("Integral Estimate: {}".format(integral_mean))
 
 
 def plot_uncertainty_window(func):
@@ -107,10 +126,10 @@ def plot_uncertainty_window(func):
     domain = PLOTTING_DOMAIN.squeeze()
 
     plot_elements["uncertainty_window"] = \
-        axes[121].fill_between(domain, lower_uncertainty, upper_uncertainty, color=(.6, .7, 1))
+        axes["left"].fill_between(domain, lower_uncertainty, upper_uncertainty, color=(.6, .7, 1))
 
-    plot_elements["uncertainty_lower_bound"], = axes[121].plot(domain, lower_uncertainty, color="tab:blue")
-    plot_elements["uncertainty_upper_bound"], = axes[121].plot(domain, upper_uncertainty, color="tab:blue")
+    plot_elements["uncertainty_lower_bound"], = axes["left"].plot(domain, lower_uncertainty, color="tab:blue")
+    plot_elements["uncertainty_upper_bound"], = axes["left"].plot(domain, upper_uncertainty, color="tab:blue")
 
     plt.pause(PLOTTING_DELAY)
 
@@ -138,15 +157,13 @@ for i in range(BATCHES):
     if plot_elements["evaluated_points"]:
         plot_elements["evaluated_points"].remove()
 
-    plot_elements["evaluated_points"], = axes[121].plot(X, Y, "xr", markersize=10, markeredgewidth=2)
+    plot_elements["evaluated_points"], = axes["left"].plot(X, Y, "xr", markersize=10, markeredgewidth=2)
 
     plt.pause(PLOTTING_DELAY)
 
-    axes[121].plot(X, Y, "xg", markersize=5, markeredgewidth=1)
+    axes["left"].plot(X, Y, "xg", markersize=5, markeredgewidth=1)
 
     gpy_gp.optimize()
-
-    print("Integral: {}".format(model.integral_mean()))
 
 
 plot_elements["posterior_mean"].remove()
