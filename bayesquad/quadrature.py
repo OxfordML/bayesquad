@@ -207,4 +207,6 @@ def _compute_mean(prior: Gaussian, gp: WsabiLGP, kernel: RBF) -> float:
 
     K = np.exp(-k/2)
 
-    return alpha + (np.linalg.det(2 * np.pi * np.linalg.inv(C)) ** 0.5)/2 * (A.T @ (K * L) @ A)
+    integral_mean = alpha + (np.linalg.det(2 * np.pi * np.linalg.inv(C)) ** 0.5)/2 * (A.T @ (K * L) @ A)
+
+    return integral_mean.item()
