@@ -415,6 +415,44 @@ class WarpedGP(ABC):
         self._gp.set_XY(all_X, warped_Y)
 
 
+class VanillaGP(WarpedGP):
+    """A GP where the output space is not warped (or equivalently, where the warping is simply the identity)."""
+
+    def posterior_mean_and_variance(self, x: ndarray) -> Tuple[ndarray, ndarray]:
+        """Get the posterior mean and variance at a point, or a set of points.
+
+        Overrides :func:`~WarpedGP.posterior_mean_and_variance` - please see that method's documentation for further
+        details on arguments and return values.
+        """
+        return self._gp.posterior_mean_and_variance
+
+    def posterior_variance_jacobian(self, x: ndarray) -> ndarray:
+        """Get the Jacobian of the posterior variance.
+
+        Overrides :func:`~WarpedGP.posterior_variance_jacobian` - please see that method's documentation for further
+        details on arguments and return values.
+        """
+        _, gp_variance_jacobian = self._gp.posterior_jacobians(x)
+
+        return gp_variance_jacobian
+
+    def posterior_variance_hessian(self, x: ndarray) -> ndarray:
+        """Get the Hessian of the posterior variance.
+
+        Overrides :func:`~WarpedGP.posterior_variance_hessian` - please see that method's documentation for further
+        details on arguments and return values.
+        """
+        _, gp_variance_hessian = self._gp.posterior_hessians(x)
+
+        return gp_variance_hessian
+
+    def _warp(self, y: ndarray) -> ndarray:
+        return y
+
+    def _unwarp(self, y: ndarray) -> ndarray:
+        return y
+
+
 class WsabiLGP(WarpedGP):
     """An approximate model for a GP using a square-root warping of the output space, using a linearisation of the
     inverse warping.
@@ -432,9 +470,10 @@ class WsabiLGP(WarpedGP):
     _ALPHA_FACTOR = 0.8
 
     def __init__(self, gp: Union[GP, GPy.core.GP]) -> None:
+        self._alpha = 0  # alpha must be initialised first since it may be needed by super().__init__
+
         super().__init__(gp)
 
-        self._alpha = 0
         self._alpha = self._ALPHA_FACTOR * min(*self._observed_Y)
 
     @flexible_array_dimensions
