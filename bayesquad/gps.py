@@ -263,13 +263,13 @@ class GP:
 
 
 class WarpedGP(ABC):
-    """Represents a Gaussian Process where the output space has been warped.
+    """Represents a Gaussian Process where the output space may have been warped.
 
     Models of this type will make use of an underlying Gaussian Process model, and work with its outputs to produce a
     warped model. Instances of this class each have an instance of `GP` for this underlying model."""
 
     def __init__(self, gp: Union[GP, GPy.core.gp.GP]) -> None:
-        """Create a Warped GP from a GP.
+        """Create a WarpedGP from a GP.
 
         Parameters
         ----------
@@ -284,6 +284,13 @@ class WarpedGP(ABC):
             raise ValueError("Argument to __init__ must be a GP.")
 
         self.dimensions = self._gp.dimensions
+
+        # We store the original data so that points can easily be removed from the GP if necessary (this is required for
+        # e.g. Kriging Believer batch selection). In addition, subclasses may need to work directly with the observed
+        # unwarped data.
+        observed_Y = self._unwarp(gp.Y)
+        self._observed_Y = _split_array_to_list_of_points(observed_Y)
+        self._all_X = _split_array_to_list_of_points(gp.X)
 
     @property
     def kernel(self) -> GPy.kern.Kern:
@@ -345,7 +352,6 @@ class WarpedGP(ABC):
             :math:`(j, k)`-th mixed partial derivative of the posterior variance at the :math:`i`-th point of `x`.
         """
 
-    @abstractmethod
     def update(self, x: ndarray, y: ndarray) -> None:
         """Add new data to the GP.
 
@@ -361,8 +367,13 @@ class WarpedGP(ABC):
         ValueError
             If the number of points in `x` does not equal the number of points in `y`.
         """
+        x, y = _validate_and_transform_for_gpy_update(x, y)
 
-    @abstractmethod
+        self._all_X += _split_array_to_list_of_points(x)
+        self._observed_Y += _split_array_to_list_of_points(y)
+
+        self._reprocess_data()
+
     def remove(self, x: Union[ndarray, List[ndarray]], y: Union[ndarray, List[ndarray]]) -> None:
         """Remove data from the GP.
 
@@ -381,6 +392,49 @@ class WarpedGP(ABC):
             If the number of points in `x` does not equal the number of points in `y`.
             If `x` is an array and `y` is a list, or vice versa.
         """
+        all_data_pairs = list(zip(self._all_X, self._observed_Y))
+        data_pairs_to_remove = _get_validated_pairs_of_points(x, y)
+
+        _remove_matching_pairs(all_data_pairs, pairs_to_remove=data_pairs_to_remove)
+        self._all_X, self._observed_Y = (list(data) for data in zip(*all_data_pairs))
+
+        self._reprocess_data()
+
+    @abstractmethod
+    def _warp(self, y: ndarray) -> ndarray:
+        """Transforms data from the observed space into the GP model space.
+
+        Parameters
+        ----------
+        y
+            An array, typically of observed data.
+
+        Returns
+        -------
+        An array of the same shape as `y`.
+        """
+
+    @abstractmethod
+    def _unwarp(self, y: ndarray) -> ndarray:
+        """Transforms data from GP model space into the space of observed data.
+
+        Parameters
+        ----------
+        y
+            An array, typically of data from the output space of the underlying GP model.
+
+        Returns
+        -------
+        An array of the same shape as `y`.
+        """
+
+    def _reprocess_data(self) -> None:
+        all_X = np.concatenate(self._all_X)
+
+        observed_Y = np.concatenate(self._observed_Y)
+        warped_Y = self._warp(observed_Y)
+
+        self._gp.set_XY(all_X, warped_Y)
 
 
 class WsabiLGP(WarpedGP):
@@ -403,16 +457,7 @@ class WsabiLGP(WarpedGP):
         super().__init__(gp)
 
         self._alpha = 0
-
-        # We need to keep track of the original values of y, since whenever alpha changes, we'll need to apply the new
-        # transform to the old data. We also keep track of the corresponding values of x separately here. We store
-        # these as a list of individual points so that points can more easily be removed from the GP if necessary (this
-        # is required for e.g. Kriging Believer).
-        unwarped_Y = self._unwarp(gp.Y)
-        self._unwarped_Y = _split_array_to_list_of_points(unwarped_Y)
-        self._all_X = _split_array_to_list_of_points(gp.X)
-
-        self._alpha = self._ALPHA_FACTOR * min(*self._unwarped_Y)
+        self._alpha = self._ALPHA_FACTOR * min(*self._observed_Y)
 
     @flexible_array_dimensions
     def posterior_mean_and_variance(self, x: ndarray) -> Tuple[ndarray, ndarray]:
@@ -481,58 +526,15 @@ class WsabiLGP(WarpedGP):
             f=gp_mean, f_jacobian=gp_mean_jacobian, f_hessian=gp_mean_hessian,
             g=gp_variance, g_jacobian=gp_variance_jacobian, g_hessian=gp_variance_hessian)
 
-    def update(self, x: ndarray, y: ndarray) -> None:
-        """Add new data to the GP. If necessary, this will also update the parameter alpha to a value consistent with
-        the new data.
-
-        Overrides :func:`~WarpedGP.update` - please see that method's documentation for further details on arguments and
-        return values.
-        """
-        # Since we may need to directly modify the existing X and Y data on the underlying GP, we can't rely on the
-        # update method of `GP` to deal with all updates here, so we need to apply the same validation and
-        # transformation for dealing with the GPy data directly.
-        x, y = _validate_and_transform_for_gpy_update(x, y)
-
-        self._all_X += _split_array_to_list_of_points(x)
-        self._unwarped_Y += _split_array_to_list_of_points(y)
-
-        new_min = min(self._alpha, *(self._ALPHA_FACTOR * y))
-
-        if new_min is not self._alpha:
-            self._update_alpha_and_reprocess_data(new_min)
-        else:
-            warped_y = self._warp(y)
-            self._gp.update(x, warped_y)
-
-    def remove(self, x: Union[ndarray, List[ndarray]], y: Union[ndarray, List[ndarray]]) -> None:
-        """Remove data from the GP. If necessary, also update the parameter alpha to a value consistent with the
-        remaining data.
-
-        Overrides :func:`~WarpedGP.remove` - please see that method's documentation for further details."""
-        all_data_pairs = list(zip(self._all_X, self._unwarped_Y))
-        data_pairs_to_remove = _get_validated_pairs_of_points(x, y)
-
-        _remove_matching_pairs(all_data_pairs, pairs_to_remove=data_pairs_to_remove)
-        self._all_X, self._unwarped_Y = (list(data) for data in zip(*all_data_pairs))
-
-        alpha = self._ALPHA_FACTOR * min(*self._unwarped_Y)
-        self._update_alpha_and_reprocess_data(alpha)
+    def _reprocess_data(self):
+        self._alpha = self._ALPHA_FACTOR * min(*self._observed_Y)
+        super()._reprocess_data()
 
     def _warp(self, y: ndarray) -> ndarray:
         return np.sqrt(2 * (y - self._alpha))
 
     def _unwarp(self, y: ndarray) -> ndarray:
         return (y ** 2) / 2 + self._alpha
-
-    def _update_alpha_and_reprocess_data(self, alpha: float):
-        self._alpha = alpha
-
-        warped_Y = [self._warp(y) for y in self._unwarped_Y]
-        all_warped_Y = np.concatenate(warped_Y)
-
-        all_X = np.concatenate(self._all_X)
-
-        self._gp.set_XY(all_X, all_warped_Y)
 
 
 def _get_validated_pairs_of_points(x: Union[ndarray, List[ndarray]],
