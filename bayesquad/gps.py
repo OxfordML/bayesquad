@@ -224,28 +224,6 @@ class GP:
 
         return mean_hessian, variance_hessian
 
-    def update(self, x: ndarray, y: Union[ndarray, float]) -> None:
-        """Add new data to the GP.
-
-        Parameters
-        ----------
-        x
-            A 2D array of shape (num_points, num_dimensions), or a 1D array of shape (num_dimensions).
-        y
-            A 1D array of shape (num_points). If X is 1D, this may also be a 0D array or float.
-
-        Raises
-        ------
-        ValueError
-            If the number of points in `x` does not equal the number of points in `y`.
-        """
-        x, y = _validate_and_transform_for_gpy_update(x, y)
-
-        X = np.concatenate((self.X, x))
-        Y = np.concatenate((self.Y, y))
-
-        self.set_XY(X, Y)
-
     def _kernel_jacobian(self, x) -> ndarray:
         return _kernel_gradients.jacobian(self.kern, x, self.X)
 
