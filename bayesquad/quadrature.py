@@ -177,7 +177,7 @@ def _compute_mean(prior: Gaussian, gp: WsabiLGP, kernel: RBF) -> float:
 
     dimensions = gp.dimensions
 
-    alpha = gp._alpha
+    alpha = gp.alpha
     kernel_lengthscale = kernel.lengthscale.values[0]
     kernel_variance = kernel.variance.values[0]
 

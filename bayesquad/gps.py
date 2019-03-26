@@ -502,6 +502,10 @@ class WsabiLGP(WarpedGP):
 
         self._alpha = self._ALPHA_FACTOR * min(*self._observed_Y)
 
+    @property
+    def alpha(self):
+        return self._alpha
+
     @flexible_array_dimensions
     def posterior_mean_and_variance(self, x: ndarray) -> Tuple[ndarray, ndarray]:
         """Get the posterior mean and variance at a point, or a set of points.
