@@ -224,6 +224,28 @@ class GP:
 
         return mean_hessian, variance_hessian
 
+    # noinspection PyPep8Naming
+    @property
+    def K_inv_Y(self) -> ndarray:
+        """Returns the product of the inverse covariance matrix and the observed data.
+
+        Returns
+        -------
+        A 2D array of shape (num_data_points, 1).
+
+        Notes
+        -----
+        Notation:
+            - :math:`\{ X_D, Y_D \}` is our GP's data, with :math:`X_D` the locations of function evaluations, and
+              :math:`Y_D` the values of the function evaluations).
+            - :math:`K` is our GP's kernel function.
+            - :math:`K_D` is the matrix with elements :math:`(K_D)_{ij} = K(x_i, x_j)` for :math:`x_i, x_j \in X_D`.
+
+        This method returns the vector :math:`K_D^{-1} Y_D`, which appears in expressions involving the mean of the
+        posterior GP.
+        """
+        return self._gpy_gp.posterior.woodbury_vector
+
     def _kernel_jacobian(self, x) -> ndarray:
         return _kernel_gradients.jacobian(self.kern, x, self.X)
 
@@ -273,6 +295,10 @@ class WarpedGP(ABC):
     @property
     def kernel(self) -> GPy.kern.Kern:
         return self._gp.kern
+
+    @property
+    def underlying_gp(self):
+        return self._gp
 
     @abstractmethod
     def posterior_mean_and_variance(self, x: ndarray) -> Tuple[ndarray, ndarray]:

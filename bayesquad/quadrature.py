@@ -173,20 +173,22 @@ def _compute_mean(prior: Prior, gp: WarpedGP, kernel: Kern) -> float:
 @multimethod
 def _compute_mean(prior: Gaussian, gp: WsabiLGP, kernel: RBF) -> float:
     """Compute the mean of the integral for a WSABI-L GP with a squared exponential kernel against a Gaussian prior."""
+    underlying_gp = gp.underlying_gp
+
     dimensions = gp.dimensions
 
     alpha = gp._alpha
     kernel_lengthscale = kernel.lengthscale.values[0]
     kernel_variance = kernel.variance.values[0]
 
-    X_D = gp._gp.X
+    X_D = underlying_gp.X
 
     mu = prior.mean
     sigma = prior.covariance
     sigma_inv = prior.precision
 
     nu = (X_D[:, newaxis, :] + X_D[newaxis, :, :]) / 2
-    A = gp._gp.posterior.woodbury_vector
+    A = underlying_gp.K_inv_Y
 
     L = np.exp(-(np.linalg.norm(X_D[:, newaxis, :] - X_D[newaxis, :, :], axis=2) ** 2)/(4 * kernel_lengthscale**2))
     L = kernel_variance ** 2 * L
