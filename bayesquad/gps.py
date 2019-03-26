@@ -151,7 +151,7 @@ class GP:
             - :math:`X_*` is the set of points at which to evaluate the Hessians (i.e. the input to this method). In the
               code, this is `x`.
             - :math:`D = \{ X_D, Y_D \}` is our GP's data (with :math:`X_D` the locations of function evaluations, and
-              :math:`Y_D` the values of the function evaluations). In the code, these are `X_D` and `Y_D`
+              :math:`Y_D` the values of the function evaluations). In the code, these are `X_D` and `Y_D`.
             - :math:`n` is the number of points in :math:`X_*`.
             - :math:`N` is the number of points in :math:`X_D`.
             - :math:`d` is the number of dimensions.
