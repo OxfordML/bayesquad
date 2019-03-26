@@ -101,7 +101,12 @@ class Gaussian(Prior):
 
     def sample(self, num_points: int = 1) -> ndarray:
         """See :func:`~Prior.sample`"""
-        return np.atleast_2d(self._multivariate_normal.rvs(size=num_points)).T
+        sample = self._multivariate_normal.rvs(size=num_points)
+
+        if self._dimensions == 1:
+            sample = sample[:, newaxis]
+
+        return sample
 
     def gradient(self, x: ndarray) -> Tuple[ndarray, ndarray]:
         """See :func:`~Prior.gradient`"""

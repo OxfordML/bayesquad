@@ -38,7 +38,7 @@ def multi_start_maximise(objective_function: Callable,
         Function to be maximised. Must return both the function value and the Jacobian. Must also accept a 2D array of
         points, returning a 1D array and a 2D array for the function values and Jacobians respectively.
     initial_points
-        A list of arrays, each of shape (num_dimensions).
+        Points at which to begin the optimisation, as a 2D array of shape (num_points, num_dimensions).
     **kwargs
         Keyword arguments will be included in the 'options' dict passed to the underlying scipy optimiser.
 
