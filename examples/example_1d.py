@@ -62,8 +62,8 @@ axes: Dict[Any, Axes] = {
     "right": figure.add_subplot(122)
 }
 
-for subplot in axes:
-    axes[subplot].set_ylim(-0.1, 1)
+for subplot_index in axes:
+    axes[subplot_index].set_ylim(-0.1, 1)
 
 PLOTTING_DOMAIN = get_plotting_domain(LOWER_LIMIT, UPPER_LIMIT, PLOTTING_RESOLUTION)
 
