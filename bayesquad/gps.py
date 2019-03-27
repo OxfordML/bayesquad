@@ -424,7 +424,7 @@ class VanillaGP(WarpedGP):
         Overrides :func:`~WarpedGP.posterior_mean_and_variance` - please see that method's documentation for further
         details on arguments and return values.
         """
-        return self._gp.posterior_mean_and_variance
+        return self._gp.posterior_mean_and_variance(x)
 
     def posterior_variance_jacobian(self, x: ndarray) -> ndarray:
         """Get the Jacobian of the posterior variance.
